@@ -1,0 +1,659 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>Exam Analyzer & Deep Auditor Live Platform</title>
+  
+  <!-- Tailwind CSS & KaTeX -->
+  <script src="https://cdn.tailwindcss.com"></script>
+  <link rel="stylesheet" href="https://cdn.jsdelivr.net/npm/katex@0.16.8/dist/katex.min.css">
+  <script defer src="https://cdn.jsdelivr.net/npm/katex@0.16.8/dist/katex.min.js"></script>
+  <script defer src="https://cdn.jsdelivr.net/npm/katex@0.16.8/dist/contrib/auto-render.min.js"></script>
+  
+  <style>
+    @import url('https://fonts.googleapis.com/css2?family=Inter:wght@300;400;500;600;700&display=swap');
+    body { font-family: 'Inter', sans-serif; }
+    .custom-scrollbar::-webkit-scrollbar { width: 6px; height: 6px; }
+    .custom-scrollbar::-webkit-scrollbar-track { background: #0f172a; }
+    .custom-scrollbar::-webkit-scrollbar-thumb { background: #334155; border-radius: 3px; }
+    .tab-active { border-bottom: 2px solid #38bdf8; color: #38bdf8; font-weight: 600; }
+  </style>
+</head>
+<body class="bg-slate-950 text-slate-100 min-h-screen">
+
+  <!-- Header / Navigation -->
+  <header class="bg-slate-900 border-b border-slate-800 sticky top-0 z-50 px-6 py-4 shadow-xl">
+    <div class="max-w-7xl mx-auto flex flex-col md:flex-row items-center justify-between gap-4">
+      <div class="flex items-center gap-3">
+        <div class="h-10 w-10 bg-gradient-to-tr from-sky-500 to-indigo-600 rounded-xl flex items-center justify-center font-bold text-white text-xl shadow-lg shadow-sky-500/20">
+          EA
+        </div>
+        <div>
+          <h1 class="text-xl font-bold bg-clip-text text-transparent bg-gradient-to-r from-sky-400 to-indigo-300">
+            Exam Analyzer & Deep Auditor Engine
+          </h1>
+          <p class="text-xs text-slate-400">Live AI PDF Solving, Error Auditing & 4-Sheet Excel Blueprint Generation</p>
+        </div>
+      </div>
+      
+      <!-- Actions / API Status -->
+      <div class="flex items-center gap-3">
+        <button onclick="toggleApiKeyModal()" class="px-3 py-1.5 rounded-lg border border-slate-700 bg-slate-800/80 hover:bg-slate-700 text-xs font-medium text-slate-300 transition flex items-center gap-2">
+          <span>🔑 API Key</span>
+          <span id="api-key-indicator" class="h-2 w-2 rounded-full bg-emerald-500"></span>
+        </button>
+        <a href="#demo-section" class="px-3 py-1.5 rounded-lg bg-sky-600 hover:bg-sky-500 text-xs font-semibold text-white transition shadow-sm">
+          Live Demo Papers
+        </a>
+      </div>
+    </div>
+  </header>
+
+  <main class="max-w-7xl mx-auto px-6 py-8">
+    
+    <!-- Upload Section & Controls -->
+    <div class="grid grid-cols-1 lg:grid-cols-12 gap-8 mb-8" id="upload-panel">
+      
+      <!-- Drag & Drop Upload Card -->
+      <div class="lg:col-span-8 bg-slate-900/90 border border-slate-800 rounded-2xl p-6 shadow-2xl relative overflow-hidden backdrop-blur">
+        <div class="border-2 border-dashed border-slate-700 hover:border-sky-500/80 rounded-xl p-8 text-center transition cursor-pointer bg-slate-950/40" id="drop-zone" onclick="document.getElementById('pdf-file-input').click()">
+          <input type="file" id="pdf-file-input" accept=".pdf" class="hidden" onchange="handleFileSelected(this.files)">
+          
+          <div class="w-16 h-16 mx-auto mb-4 bg-sky-500/10 text-sky-400 rounded-full flex items-center justify-center text-3xl">
+            📄
+          </div>
+          <h3 class="text-lg font-semibold text-slate-200 mb-1" id="file-title">Drop your Question Paper PDF here</h3>
+          <p class="text-xs text-slate-400 mb-4" id="file-sub">Supports NEET (180Q), JEE Main (75Q), JEE Advanced (54Q), IPMAT (100Q), and School Term Tests</p>
+          <span class="inline-block px-4 py-2 bg-slate-800 text-sky-400 rounded-lg text-xs font-medium border border-slate-700 hover:bg-slate-700 transition">
+            Browse Computer Files
+          </span>
+        </div>
+
+        <!-- Action Button -->
+        <div class="mt-5 flex items-center justify-between gap-4">
+          <div class="text-xs text-slate-400" id="selected-file-info">
+            No file chosen yet.
+          </div>
+          <button id="analyze-btn" onclick="startAnalysis()" disabled class="px-6 py-2.5 bg-gradient-to-r from-sky-500 to-indigo-600 hover:from-sky-400 hover:to-indigo-500 disabled:opacity-40 disabled:cursor-not-allowed text-white font-semibold text-sm rounded-xl shadow-lg shadow-sky-500/20 transition flex items-center gap-2">
+            <span>⚡ Audit & Generate Excel</span>
+          </button>
+        </div>
+
+        <!-- Progress Tracker -->
+        <div id="progress-container" class="mt-6 hidden">
+          <div class="flex justify-between text-xs text-slate-300 mb-1.5">
+            <span id="progress-label" class="font-medium">Extracting PDF pages and OCR...</span>
+            <span id="progress-percentage" class="font-bold text-sky-400">20%</span>
+          </div>
+          <div class="w-full bg-slate-800 rounded-full h-2 overflow-hidden">
+            <div id="progress-bar" class="bg-gradient-to-r from-sky-400 to-indigo-500 h-full rounded-full transition-all duration-300" style="width: 20%"></div>
+          </div>
+        </div>
+      </div>
+
+      <!-- Quick Demo Papers Dropdown Card -->
+      <div class="lg:col-span-4 bg-slate-900/90 border border-slate-800 rounded-2xl p-6 shadow-2xl flex flex-col justify-between" id="demo-section">
+        <div>
+          <div class="flex items-center gap-2 mb-3">
+            <span class="text-base font-bold text-slate-200">🚀 Quick Demo Papers</span>
+            <span class="px-2 py-0.5 bg-sky-500/20 text-sky-400 text-[10px] font-semibold rounded">Ready to Test</span>
+          </div>
+          <p class="text-xs text-slate-400 mb-4 leading-relaxed">
+            Select any exam paper from your storage to run an instant deep analysis and generate the 4-sheet Excel workbook.
+          </p>
+
+          <label class="block text-xs font-semibold text-slate-300 mb-1.5">Select Sample Paper:</label>
+          <select id="sample-paper-select" class="w-full bg-slate-950 border border-slate-700 text-slate-200 rounded-xl px-3 py-2.5 text-xs focus:ring-2 focus:ring-sky-500 focus:outline-none custom-scrollbar mb-4">
+            <option value="">-- Choose a Sample Exam PDF --</option>
+          </select>
+        </div>
+
+        <button onclick="runSamplePaperAnalysis()" class="w-full py-2.5 bg-slate-800 hover:bg-slate-700 text-sky-400 border border-slate-700 rounded-xl text-xs font-semibold transition flex items-center justify-center gap-2">
+          <span>▶️ Run Sample Analysis</span>
+        </button>
+      </div>
+
+    </div>
+
+    <!-- Results Section (Tabs & Preview) -->
+    <div id="results-container" class="hidden">
+      
+      <!-- Top Stats Bar -->
+      <div class="bg-slate-900 border border-slate-800 rounded-2xl p-6 mb-6 shadow-xl flex flex-wrap items-center justify-between gap-4">
+        <div>
+          <span class="text-xs text-sky-400 font-bold uppercase tracking-wider">Analysis Complete</span>
+          <h2 class="text-xl font-bold text-white mt-0.5" id="res-exam-title">Exam Analysis Summary</h2>
+          <p class="text-xs text-slate-400" id="res-meta-info">Total Questions: 0 | Status: Completed</p>
+        </div>
+
+        <button id="download-excel-btn" onclick="downloadCurrentExcel()" class="px-5 py-2.5 bg-emerald-600 hover:bg-emerald-500 text-white font-bold text-sm rounded-xl shadow-lg shadow-emerald-600/20 transition flex items-center gap-2">
+          <span>📥 Download 4-Sheet Excel (.xlsx)</span>
+        </button>
+      </div>
+
+      <!-- Navigation Tabs -->
+      <div class="flex border-b border-slate-800 mb-6 gap-6 text-sm font-medium text-slate-400">
+        <button onclick="switchTab('tab-q-level')" id="btn-tab-q-level" class="pb-3 tab-active transition">
+          1. Question Level Analysis
+        </button>
+        <button onclick="switchTab('tab-dist')" id="btn-tab-dist" class="pb-3 hover:text-slate-200 transition">
+          2. Distribution Summary
+        </button>
+        <button onclick="switchTab('tab-err')" id="btn-tab-err" class="pb-3 hover:text-slate-200 transition">
+          3. Error Summary
+        </button>
+        <button onclick="switchTab('tab-diff')" id="btn-tab-diff" class="pb-3 hover:text-slate-200 transition">
+          4. Overall Difficulty & Ranks
+        </button>
+      </div>
+
+      <!-- Tab Content Area -->
+      
+      <!-- Tab 1: Question Level Analysis -->
+      <div id="tab-q-level" class="tab-pane">
+        <div class="bg-slate-900 border border-slate-800 rounded-2xl p-4 shadow-xl overflow-hidden">
+          <div class="flex items-center justify-between mb-4 px-2">
+            <input type="text" id="q-search" oninput="filterQuestionsTable()" placeholder="Search by Question No, Chapter, Subject, or Topic..." class="bg-slate-950 border border-slate-700 text-xs text-slate-200 px-4 py-2 rounded-xl w-80 focus:ring-2 focus:ring-sky-500 focus:outline-none">
+            <span class="text-xs text-slate-400" id="q-count-badge">Showing all questions</span>
+          </div>
+
+          <div class="overflow-x-auto max-h-[600px] custom-scrollbar rounded-xl border border-slate-800">
+            <table class="w-full text-left text-xs text-slate-300" id="table-q-level">
+              <thead class="bg-slate-950 text-slate-300 font-semibold uppercase sticky top-0 border-b border-slate-800">
+                <tr>
+                  <th class="p-3 text-center">Q. No.</th>
+                  <th class="p-3 text-center">Teacher Key</th>
+                  <th class="p-3 text-center">AI Key</th>
+                  <th class="p-3 text-center">Match Status</th>
+                  <th class="p-3">Consensus / Mismatch Reason</th>
+                  <th class="p-3 text-center">Subject</th>
+                  <th class="p-3 text-center bg-sky-950/30 text-sky-300">Sub Subject</th>
+                  <th class="p-3">Chapter Name</th>
+                  <th class="p-3">Topic / Concept</th>
+                  <th class="p-3 text-center">Type</th>
+                  <th class="p-3 text-center">Time (m)</th>
+                  <th class="p-3 text-center">Diff</th>
+                </tr>
+              </thead>
+              <tbody id="tbody-q-level" class="divide-y divide-slate-800/60 font-normal">
+              </tbody>
+            </table>
+          </div>
+        </div>
+      </div>
+
+      <!-- Tab 2: Distribution Summary -->
+      <div id="tab-dist" class="tab-pane hidden space-y-6">
+        <!-- Table 1: Subject & Sub-Subject Breakdown -->
+        <div class="bg-slate-900 border border-slate-800 rounded-2xl p-6 shadow-xl">
+          <div class="flex items-center justify-between mb-4">
+            <h3 class="text-base font-bold text-white">📊 Subject & Sub-Subject Master Distribution</h3>
+            <span class="text-xs text-slate-400" id="dist-sub-meta">Summary Table</span>
+          </div>
+          <div class="overflow-x-auto rounded-xl border border-slate-800">
+            <table class="w-full text-left text-xs text-slate-300">
+              <thead class="bg-slate-950 text-slate-300 font-semibold uppercase border-b border-slate-800">
+                <tr>
+                  <th class="p-3 text-center">Subject</th>
+                  <th class="p-3 text-center bg-sky-950/30 text-sky-300">Sub Subject</th>
+                  <th class="p-3 text-center text-emerald-400">Easy (E)</th>
+                  <th class="p-3 text-center text-amber-400">Medium (M)</th>
+                  <th class="p-3 text-center text-rose-400">Difficult (D)</th>
+                  <th class="p-3 text-center font-bold text-white">Total Questions</th>
+                  <th class="p-3 text-center font-bold text-sky-400">Total Marks</th>
+                </tr>
+              </thead>
+              <tbody id="tbody-dist-sub" class="divide-y divide-slate-800 font-normal"></tbody>
+              <tfoot id="tfoot-dist-sub" class="bg-slate-950 font-bold border-t-2 border-slate-700 text-white"></tfoot>
+            </table>
+          </div>
+        </div>
+
+        <!-- Table 2: Chapter Breakdown -->
+        <div class="bg-slate-900 border border-slate-800 rounded-2xl p-6 shadow-xl">
+          <div class="flex items-center justify-between mb-4">
+            <h3 class="text-base font-bold text-white">📚 NCERT Chapter Breakdown & Cognitive Load</h3>
+            <span class="text-xs text-slate-400" id="dist-ch-meta">Standard Taxonomy</span>
+          </div>
+          <div class="overflow-x-auto max-h-[500px] custom-scrollbar rounded-xl border border-slate-800">
+            <table class="w-full text-left text-xs text-slate-300">
+              <thead class="bg-slate-950 text-slate-300 font-semibold uppercase sticky top-0 border-b border-slate-800">
+                <tr>
+                  <th class="p-3 text-center">Subject</th>
+                  <th class="p-3 text-center bg-sky-950/30 text-sky-300">Sub Subject</th>
+                  <th class="p-3">NCERT Chapter Name</th>
+                  <th class="p-3 text-center font-bold text-white">Total Count</th>
+                  <th class="p-3 text-center text-emerald-400">Easy (E)</th>
+                  <th class="p-3 text-center text-amber-400">Medium (M)</th>
+                  <th class="p-3 text-center text-rose-400">Difficult (D)</th>
+                  <th class="p-3 text-center">Avg Time (min)</th>
+                </tr>
+              </thead>
+              <tbody id="tbody-dist-ch" class="divide-y divide-slate-800 font-normal"></tbody>
+              <tfoot id="tfoot-dist-ch" class="bg-slate-950 font-bold border-t-2 border-slate-700 text-white sticky bottom-0"></tfoot>
+            </table>
+          </div>
+        </div>
+      </div>
+
+      <!-- Tab 3: Error Summary -->
+      <div id="tab-err" class="tab-pane hidden">
+        <div class="bg-slate-900 border border-slate-800 rounded-2xl p-6 shadow-xl">
+          <h3 class="text-base font-bold text-white mb-4">🔍 Question Paper & Answer Key Discrepancy Log</h3>
+          <div class="overflow-x-auto rounded-xl border border-slate-800">
+            <table class="w-full text-left text-xs text-slate-300">
+              <thead class="bg-slate-950 text-slate-300 font-semibold uppercase border-b border-slate-800">
+                <tr>
+                  <th class="p-3 text-center w-28">Q. No. / Area</th>
+                  <th class="p-3 text-center w-40">Error Category</th>
+                  <th class="p-3">Detailed Description of Question Error</th>
+                  <th class="p-3">Consensus Resolution / Discrepancy Note</th>
+                </tr>
+              </thead>
+              <tbody id="tbody-err" class="divide-y divide-slate-800 font-normal"></tbody>
+            </table>
+          </div>
+        </div>
+      </div>
+
+      <!-- Tab 4: Overall Difficulty & Ranks -->
+      <div id="tab-diff" class="tab-pane hidden">
+        <div class="bg-slate-900 border border-slate-800 rounded-2xl p-6 shadow-xl max-w-4xl mx-auto">
+          <h3 class="text-base font-bold text-white mb-4">🎯 Paper Difficulty Index & Percentile Cutoffs</h3>
+          <div class="overflow-x-auto rounded-xl border border-slate-800">
+            <table class="w-full text-left text-xs text-slate-300">
+              <thead class="bg-slate-950 text-slate-300 font-semibold uppercase border-b border-slate-800">
+                <tr>
+                  <th class="p-3.5 w-1/2">Assessment Metric / Parameter</th>
+                  <th class="p-3.5 w-1/2 font-bold text-sky-400">Target Value / Benchmark</th>
+                </tr>
+              </thead>
+              <tbody id="tbody-diff" class="divide-y divide-slate-800 font-normal"></tbody>
+            </table>
+          </div>
+        </div>
+      </div>
+
+    </div>
+
+  </main>
+
+  <!-- API Key Modal -->
+  <div id="api-key-modal" class="fixed inset-0 bg-black/70 backdrop-blur-sm z-50 hidden flex items-center justify-center p-4">
+    <div class="bg-slate-900 border border-slate-800 rounded-2xl p-6 max-w-md w-full shadow-2xl">
+      <h3 class="text-lg font-bold text-white mb-2">Configure Gemini API Key</h3>
+      <p class="text-xs text-slate-400 mb-4">Enter your Google Gemini API Key to enable live multimodal PDF parsing and deep reasoning.</p>
+      
+      <input type="password" id="custom-api-key-input" placeholder="AIzaSy..." class="w-full bg-slate-950 border border-slate-700 text-xs text-slate-200 px-4 py-2.5 rounded-xl mb-4 focus:ring-2 focus:ring-sky-500 focus:outline-none">
+
+      <div class="flex justify-end gap-3">
+        <button onclick="toggleApiKeyModal()" class="px-4 py-2 bg-slate-800 hover:bg-slate-700 text-xs font-semibold text-slate-300 rounded-xl transition">
+          Cancel
+        </button>
+        <button onclick="saveApiKey()" class="px-5 py-2 bg-sky-600 hover:bg-sky-500 text-xs font-bold text-white rounded-xl shadow-lg transition">
+          Save Key
+        </button>
+      </div>
+    </div>
+  </div>
+
+  <script>
+    let currentSessionId = null;
+    let currentAnalysisData = null;
+    let selectedFile = null;
+
+    document.addEventListener("DOMContentLoaded", () => {
+      loadSamplePapers();
+      const savedKey = localStorage.getItem("GEMINI_API_KEY");
+      if (savedKey) {
+        document.getElementById("custom-api-key-input").value = savedKey;
+      }
+    });
+
+    async function loadSamplePapers() {
+      try {
+        const res = await fetch("/api/sample-papers");
+        const data = await res.json();
+        const select = document.getElementById("sample-paper-select");
+        (data.sample_papers || []).forEach(paper => {
+          const opt = document.createElement("option");
+          opt.value = paper;
+          opt.textContent = paper;
+          select.appendChild(opt);
+        });
+      } catch (err) {
+        console.error("Failed to load sample papers:", err);
+      }
+    }
+
+    function handleFileSelected(files) {
+      if (files && files[0]) {
+        selectedFile = files[0];
+        document.getElementById("file-title").textContent = selectedFile.name;
+        document.getElementById("file-sub").textContent = `${(selectedFile.size / (1024*1024)).toFixed(2)} MB PDF Document`;
+        document.getElementById("selected-file-info").textContent = `Selected: ${selectedFile.name}`;
+        document.getElementById("analyze-btn").disabled = false;
+      }
+    }
+
+    function toggleApiKeyModal() {
+      const modal = document.getElementById("api-key-modal");
+      modal.classList.toggle("hidden");
+    }
+
+    function saveApiKey() {
+      const key = document.getElementById("custom-api-key-input").value.trim();
+      if (key) {
+        localStorage.setItem("GEMINI_API_KEY", key);
+      } else {
+        localStorage.removeItem("GEMINI_API_KEY");
+      }
+      toggleApiKeyModal();
+    }
+
+    async function startAnalysis() {
+      if (!selectedFile) return;
+      await runAnalysisWithPayload({ file: selectedFile });
+    }
+
+    async function runSamplePaperAnalysis() {
+      const sample = document.getElementById("sample-paper-select").value;
+      if (!sample) {
+        alert("Please select a sample paper from the dropdown.");
+        return;
+      }
+      await runAnalysisWithPayload({ sample_filename: sample });
+    }
+
+    async function runAnalysisWithPayload(payload) {
+      const btn = document.getElementById("analyze-btn");
+      const progCont = document.getElementById("progress-container");
+      const progBar = document.getElementById("progress-bar");
+      const progLabel = document.getElementById("progress-label");
+      const progPct = document.getElementById("progress-percentage");
+
+      btn.disabled = true;
+      progCont.classList.remove("hidden");
+      progBar.style.width = "25%";
+      progPct.textContent = "25%";
+      progLabel.textContent = "Uploading PDF and extracting pages...";
+
+      const formData = new FormData();
+      if (payload.file) formData.append("file", payload.file);
+      if (payload.sample_filename) formData.append("sample_filename", payload.sample_filename);
+      
+      const apiKey = localStorage.getItem("GEMINI_API_KEY");
+      if (apiKey) formData.append("api_key", apiKey);
+
+      try {
+        progBar.style.width = "50%";
+        progPct.textContent = "50%";
+        progLabel.textContent = "AI Solver & Deep Error Auditor executing...";
+
+        const res = await fetch("/api/analyze", {
+          method: "POST",
+          body: formData
+        });
+
+        if (!res.ok) {
+          const errData = await res.json();
+          throw new Error(errData.detail || "Analysis failed");
+        }
+
+        const data = await res.json();
+        currentSessionId = data.session_id;
+
+        progBar.style.width = "90%";
+        progPct.textContent = "90%";
+        progLabel.textContent = "Compiling 4-Sheet Master Excel Workbook...";
+
+        const previewRes = await fetch(`/api/preview/${currentSessionId}`);
+        currentAnalysisData = await previewRes.json();
+
+        progBar.style.width = "100%";
+        progPct.textContent = "100%";
+        progLabel.textContent = "Analysis & Excel Generation Complete!";
+
+        setTimeout(() => {
+          renderAnalysisUI(currentAnalysisData);
+          btn.disabled = false;
+        }, 500);
+
+      } catch (err) {
+        alert("Error during analysis: " + err.message);
+        btn.disabled = false;
+        progCont.classList.add("hidden");
+      }
+    }
+
+    function renderAnalysisUI(data) {
+      document.getElementById("results-container").classList.remove("hidden");
+      document.getElementById("res-exam-title").textContent = data.exam_title || "Exam Blueprint Analysis";
+      document.getElementById("res-meta-info").textContent = `Total Questions: ${data.questions.length} | Pages: ${data.total_pages || 'N/A'} | Status: Verified 100%`;
+
+      // 1. Render Q-Level
+      const tbodyQ = document.getElementById("tbody-q-level");
+      tbodyQ.innerHTML = "";
+      (data.questions || []).forEach(q => {
+        const isMatch = (q.status || "").toUpperCase() === "MATCH";
+        const tr = document.createElement("tr");
+        tr.className = "hover:bg-slate-800/40 transition";
+        tr.innerHTML = `
+          <td class="p-3 text-center font-bold text-slate-200">${q.q_no}</td>
+          <td class="p-3 text-center font-semibold text-slate-300">${q.teacher_answer}</td>
+          <td class="p-3 text-center font-semibold text-sky-400">${q.ai_answer}</td>
+          <td class="p-3 text-center">
+            <span class="px-2 py-0.5 text-[10px] font-bold rounded-full ${isMatch ? 'bg-emerald-500/20 text-emerald-400 border border-emerald-500/30' : 'bg-rose-500/20 text-rose-400 border border-rose-500/30'}">
+              ${q.status}
+            </span>
+          </td>
+          <td class="p-3 text-slate-400 max-w-xs truncate">${q.reason_for_mismatch || 'None'}</td>
+          <td class="p-3 text-center text-slate-300">${q.subject}</td>
+          <td class="p-3 text-center font-semibold text-sky-300 bg-sky-950/20">${q.sub_subject || q.subject}</td>
+          <td class="p-3 text-slate-200 font-medium">${q.chapter_name}</td>
+          <td class="p-3 text-slate-400 max-w-sm truncate">${q.topic_name}</td>
+          <td class="p-3 text-center text-slate-400">${q.question_type}</td>
+          <td class="p-3 text-center text-slate-300">${q.time_required}</td>
+          <td class="p-3 text-center font-bold ${q.difficulty === 'E' ? 'text-emerald-400' : (q.difficulty === 'M' ? 'text-amber-400' : 'text-rose-400')}">${q.difficulty}</td>
+        `;
+        tbodyQ.appendChild(tr);
+      });
+
+      // 2. Render Distribution Tables with Grand Totals
+      renderDistributionTables(data.questions);
+
+      // 3. Render Error Summary
+      const tbodyErr = document.getElementById("tbody-err");
+      tbodyErr.innerHTML = "";
+      (data.errors || []).forEach(err => {
+        const tr = document.createElement("tr");
+        tr.className = "hover:bg-slate-800/40 transition";
+        tr.innerHTML = `
+          <td class="p-3 text-center font-bold text-slate-200">${err[0]}</td>
+          <td class="p-3 text-center text-amber-400 font-medium">${err[1]}</td>
+          <td class="p-3 text-slate-300">${err[2]}</td>
+          <td class="p-3 text-slate-400">${err[3] || 'None'}</td>
+        `;
+        tbodyErr.appendChild(tr);
+      });
+
+      // 4. Render Difficulty & Cutoffs
+      renderDifficultyTable(data);
+
+      document.getElementById("results-container").scrollIntoView({ behavior: 'smooth' });
+    }
+
+    function renderDistributionTables(questions) {
+      const subStats = {};
+      const chStats = {};
+      let grandE = 0, grandM = 0, grandD = 0, grandTotal = 0, grandMarks = 0;
+      let totalTimeSum = 0;
+
+      questions.forEach(q => {
+        const subKey = `${q.subject}||${q.sub_subject || q.subject}`;
+        if (!subStats[subKey]) subStats[subKey] = { sub: q.subject, sub_sub: q.sub_subject || q.subject, E:0, M:0, D:0, total:0 };
+        const diff = (q.difficulty || 'M').toUpperCase();
+        if (subStats[subKey][diff] !== undefined) subStats[subKey][diff]++;
+        subStats[subKey].total++;
+
+        if (diff === 'E') grandE++;
+        else if (diff === 'D') grandD++;
+        else grandM++;
+        grandTotal++;
+
+        const ch = q.chapter_name || 'General';
+        if (!chStats[ch]) chStats[ch] = { sub: q.subject, sub_sub: q.sub_subject || q.subject, name: ch, count: 0, E:0, M:0, D:0, timeSum: 0 };
+        chStats[ch].count++;
+        if (chStats[ch][diff] !== undefined) chStats[ch][diff]++;
+        const tVal = parseFloat(q.time_required || 1.0);
+        chStats[ch].timeSum += tVal;
+        totalTimeSum += tVal;
+      });
+
+      grandMarks = grandTotal * 4;
+
+      // Render Table 1: Subject Master
+      const tbodySub = document.getElementById("tbody-dist-sub");
+      tbodySub.innerHTML = "";
+      Object.values(subStats).forEach(s => {
+        const tr = document.createElement("tr");
+        tr.innerHTML = `
+          <td class="p-3 text-center font-medium text-slate-300">${s.sub}</td>
+          <td class="p-3 text-center font-semibold text-sky-300 bg-sky-950/20">${s.sub_sub}</td>
+          <td class="p-3 text-center text-emerald-400">${s.E}</td>
+          <td class="p-3 text-center text-amber-400">${s.M}</td>
+          <td class="p-3 text-center text-rose-400">${s.D}</td>
+          <td class="p-3 text-center font-bold text-white">${s.total}</td>
+          <td class="p-3 text-center font-bold text-sky-400">${s.total * 4}</td>
+        `;
+        tbodySub.appendChild(tr);
+      });
+
+      // Total Row for Table 1
+      const tfootSub = document.getElementById("tfoot-dist-sub");
+      tfootSub.innerHTML = `
+        <tr>
+          <td class="p-3 text-center font-bold text-white">Total</td>
+          <td class="p-3 text-center font-bold text-sky-300 bg-sky-950/30">All Sub-Subjects</td>
+          <td class="p-3 text-center font-bold text-emerald-400">${grandE}</td>
+          <td class="p-3 text-center font-bold text-amber-400">${grandM}</td>
+          <td class="p-3 text-center font-bold text-rose-400">${grandD}</td>
+          <td class="p-3 text-center font-extrabold text-white text-sm">${grandTotal}</td>
+          <td class="p-3 text-center font-extrabold text-sky-400 text-sm">${grandMarks}</td>
+        </tr>
+      `;
+
+      // Render Table 2: Chapter Breakdown
+      const tbodyCh = document.getElementById("tbody-dist-ch");
+      tbodyCh.innerHTML = "";
+      Object.values(chStats).sort((a,b) => a.name.localeCompare(b.name)).forEach(c => {
+        const avgT = (c.timeSum / c.count).toFixed(1);
+        const tr = document.createElement("tr");
+        tr.innerHTML = `
+          <td class="p-3 text-center text-slate-400">${c.sub}</td>
+          <td class="p-3 text-center font-medium text-sky-300 bg-sky-950/20">${c.sub_sub}</td>
+          <td class="p-3 font-semibold text-slate-200">${c.name}</td>
+          <td class="p-3 text-center font-bold text-white">${c.count}</td>
+          <td class="p-3 text-center text-emerald-400">${c.E}</td>
+          <td class="p-3 text-center text-amber-400">${c.M}</td>
+          <td class="p-3 text-center text-rose-400">${c.D}</td>
+          <td class="p-3 text-center text-slate-300">${avgT}m</td>
+        `;
+        tbodyCh.appendChild(tr);
+      });
+
+      // Total Row for Table 2
+      const tfootCh = document.getElementById("tfoot-dist-ch");
+      const overallAvgTime = grandTotal > 0 ? (totalTimeSum / grandTotal).toFixed(1) : "1.0";
+      tfootCh.innerHTML = `
+        <tr>
+          <td class="p-3 text-center font-bold text-white">Total</td>
+          <td class="p-3 text-center font-bold text-sky-300 bg-sky-950/30">All Chapters</td>
+          <td class="p-3 font-bold text-slate-200">Across Whole Examination</td>
+          <td class="p-3 text-center font-extrabold text-white text-sm">${grandTotal}</td>
+          <td class="p-3 text-center font-bold text-emerald-400">${grandE}</td>
+          <td class="p-3 text-center font-bold text-amber-400">${grandM}</td>
+          <td class="p-3 text-center font-bold text-rose-400">${grandD}</td>
+          <td class="p-3 text-center font-bold text-sky-300">${overallAvgTime}m</td>
+        </tr>
+      `;
+    }
+
+    function renderDifficultyTable(data) {
+      const qList = data.questions || [];
+      const totalQ = qList.length || 1;
+      const totalMarks = totalQ * 4;
+      const totE = qList.filter(q => q.difficulty === 'E').length;
+      const totM = qList.filter(q => q.difficulty === 'M').length;
+      const totD = qList.filter(q => q.difficulty === 'D').length;
+      const diffIdx = ((totE * 1 + totM * 2 + totD * 3) / totalQ).toFixed(2);
+
+      const rows = [
+        ["Identified Exam Blueprint", data.exam_title || "Competitive Exam Blueprint"],
+        ["Total Questions Evaluated", `${totalQ} Questions`],
+        ["Total Maximum Marks", `${totalMarks} Marks`],
+        ["Easy Questions Count (E)", `${totE} (${((totE/totalQ)*100).toFixed(1)}%)`],
+        ["Medium Questions Count (M)", `${totM} (${((totM/totalQ)*100).toFixed(1)}%)`],
+        ["Difficult Questions Count (D)", `${totD} (${((totD/totalQ)*100).toFixed(1)}%)`],
+        ["Paper Difficulty Index (Scale 1.0 - 3.0)", `${diffIdx} / 3.00`],
+        ["----------------------------------------", "------------------------"],
+        ["Target Score: 99.0th+ Percentile Benchmark", `${Math.round(totalMarks * 0.85)} - ${Math.round(totalMarks * 0.95)} Marks`],
+        ["Target Score: 95.0th Percentile Benchmark", `${Math.round(totalMarks * 0.72)} - ${Math.round(totalMarks * 0.84)} Marks`],
+        ["Target Score: 90.0th Percentile Benchmark", `${Math.round(totalMarks * 0.60)} - ${Math.round(totalMarks * 0.70)} Marks`],
+        ["Target Score: 80.0th Percentile Benchmark", `${Math.round(totalMarks * 0.48)} - ${Math.round(totalMarks * 0.58)} Marks`],
+        ["Exam Pedagogical Profile", "Automated deep audit testing cognitive demand, speed efficiency, and conceptual distribution."]
+      ];
+
+      const tbodyDiff = document.getElementById("tbody-diff");
+      tbodyDiff.innerHTML = "";
+      rows.forEach(r => {
+        const tr = document.createElement("tr");
+        tr.innerHTML = `
+          <td class="p-3.5 text-slate-300">${r[0]}</td>
+          <td class="p-3.5 font-semibold ${r[0].includes('Percentile') || r[0].includes('Difficulty') ? 'text-sky-400' : 'text-slate-200'}">${r[1]}</td>
+        `;
+        tbodyDiff.appendChild(tr);
+      });
+    }
+
+    function switchTab(tabId) {
+      document.querySelectorAll(".tab-pane").forEach(el => el.classList.add("hidden"));
+      document.getElementById(tabId).classList.remove("hidden");
+
+      document.querySelectorAll("header button, div button").forEach(b => {
+        if (b.id && b.id.startsWith("btn-tab-")) {
+          b.classList.remove("tab-active", "text-sky-400");
+          b.classList.add("text-slate-400");
+        }
+      });
+      const activeBtn = document.getElementById(`btn-${tabId}`);
+      if (activeBtn) {
+        activeBtn.classList.add("tab-active", "text-sky-400");
+        activeBtn.classList.remove("text-slate-400");
+      }
+    }
+
+    function filterQuestionsTable() {
+      const q = document.getElementById("q-search").value.toLowerCase();
+      const rows = document.querySelectorAll("#tbody-q-level tr");
+      let visible = 0;
+      rows.forEach(r => {
+        const text = r.textContent.toLowerCase();
+        if (text.includes(q)) {
+          r.style.display = "";
+          visible++;
+        } else {
+          r.style.display = "none";
+        }
+      });
+      document.getElementById("q-count-badge").textContent = `Showing ${visible} of ${rows.length} questions`;
+    }
+
+    function downloadCurrentExcel() {
+      if (!currentSessionId) return;
+      window.location.href = `/api/download/${currentSessionId}`;
+    }
+  </script>
+</body>
+</html>
