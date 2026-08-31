@@ -1013,6 +1013,11 @@ async def download_session_excel(session_id: str):
         media_type="application/vnd.openxmlformats-officedocument.spreadsheetml.sheet"
     )
 
+@app.head("/", include_in_schema=False)
+async def serve_index_head():
+    """Render.com health check uses HEAD — must return 200."""
+    return Response(status_code=200)
+
 @app.get("/", response_class=HTMLResponse)
 async def serve_index():
     index_path = os.path.join(BASE_DIR, "index.html")
