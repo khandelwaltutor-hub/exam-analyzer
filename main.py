@@ -44,6 +44,8 @@ SESSIONS_DIR = os.path.join(BASE_DIR, "sessions")
 os.makedirs(SESSIONS_DIR, exist_ok=True)
 
 ACTIVE_SESSIONS: Dict[str, Dict[str, Any]] = {}
+ANALYSIS_JOBS: Dict[str, Dict[str, Any]] = {}
+SESSIONS_CACHE: Dict[str, Dict[str, Any]] = {}
 
 @app.get('/favicon.ico', include_in_schema=False)
 async def favicon():
