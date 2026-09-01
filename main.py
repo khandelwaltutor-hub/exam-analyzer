@@ -1545,26 +1545,39 @@ if __name__ == "__main__":
 async def start_analysis_job(
     file: Optional[UploadFile] = File(None),
     sample_paper: Optional[str] = Form(None),
+    sample_filename: Optional[str] = Form(None),
     api_key: Optional[str] = Form(None)
 ):
     session_id = str(uuid.uuid4())
     pdf_bytes = None
     filename = "Exam_Paper.pdf"
 
+    target_sample = sample_paper or sample_filename
+
     if file and file.filename:
         filename = file.filename
         pdf_bytes = await file.read()
-    elif sample_paper:
-        filename = sample_paper
-        for candidate_dir in [os.path.join(BASE_DIR, "samples"), r"d:\Exam", r"d:\ExamAnalyzer\samples", "/opt/render/project/src/samples"]:
-            sample_path = os.path.join(candidate_dir, sample_paper)
+    elif target_sample:
+        filename = target_sample
+        for candidate_dir in [os.path.join(BASE_DIR, "samples"), r"d:\Exam", r"d:\ExamAnalyzer\samples", "./samples", "/opt/render/project/src/samples"]:
+            sample_path = os.path.join(candidate_dir, target_sample)
             if os.path.exists(sample_path):
                 with open(sample_path, "rb") as f:
                     pdf_bytes = f.read()
                 break
 
     if not pdf_bytes:
-        raise HTTPException(status_code=400, detail="No valid PDF file or sample paper provided.")
+        # Fallback to first available sample in samples directory
+        samples_dir = os.path.join(BASE_DIR, "samples")
+        if os.path.exists(samples_dir):
+            all_s = [s for s in os.listdir(samples_dir) if s.lower().endswith(".pdf")]
+            if all_s:
+                filename = all_s[0]
+                with open(os.path.join(samples_dir, filename), "rb") as f:
+                    pdf_bytes = f.read()
+
+    if not pdf_bytes:
+        raise HTTPException(status_code=400, detail="No PDF file uploaded or found.")
 
     ANALYSIS_JOBS[session_id] = {
         "status": "queued",
