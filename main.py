@@ -437,59 +437,83 @@ def classify_question_taxonomy(q_text: str, detected_subject: str, detected_sub_
     return detected_sub_subject, "Core Chapter", "Standard Coaching Topic"
 
 
-def extract_clean_answer_keys(full_text: str, total_q: int) -> Dict[int, str]:
-    keys: Dict[int, str] = {}
+def extract_clean_answer_keys(full_text: str, total_q: int) -> dict:
+    keys = {}
+    lines = [l.strip() for l in full_text.splitlines() if l.strip()]
 
-    # 1. Search for Q.No. / Ans. column blocks across the entire text (especially last 3 pages)
-    # Match patterns like Q. No. \n 1 \n 2 ... \n Ans. \n 2 \n 1 ...
-    blocks = re.split(r'Q\.?\s*No\.?', full_text, flags=re.IGNORECASE)
-    for b in blocks[1:]:
-        if 'Ans' not in b:
-            continue
-        parts = re.split(r'Ans\.?', b, flags=re.IGNORECASE)
-        if len(parts) >= 2:
-            q_part = parts[0].strip()
-            ans_part = parts[1].strip()
-            # Extract q numbers
-            q_lines = [int(n) for n in re.findall(r'\b\d{1,3}\b', q_part)]
-            # Extract answer values (single digits, letters A-D, or numericals)
-            ans_lines = []
-            for l in ans_part.splitlines():
-                l_s = l.strip()
-                if not l_s or l_s.startswith('===') or 'PAGE' in l_s:
-                    continue
-                if re.match(r'^Q\.?\s*No', l_s, re.IGNORECASE):
-                    break
-                m_ans = re.search(r'\b([1-4A-D]|\d+(?:\.\d+)?)\b', l_s)
-                if m_ans:
-                    ans_lines.append(m_ans.group(1))
-            
-            for qn, av in zip(q_lines, ans_lines):
-                if 1 <= qn <= total_q + 15:
-                    keys[qn] = av
+    # ── FORMAT A: Q.No. ... Ans. Table Sections ──────────────────
+    sections = []
+    curr_type = None
+    curr_items = []
+    
+    for l in lines:
+        if re.match(r'^(?:Q\.?\s*No\.?|Question)$', l, re.IGNORECASE):
+            if curr_type and curr_items:
+                sections.append((curr_type, curr_items))
+            curr_type = "Q"
+            curr_items = []
+        elif re.match(r'^(?:Ans\.?|Answer)$', l, re.IGNORECASE):
+            if curr_type and curr_items:
+                sections.append((curr_type, curr_items))
+            curr_type = "A"
+            curr_items = []
+        elif curr_type:
+            # Only append valid tokens, filter out exam titles / headers
+            if any(h in l.upper() for h in ["REVIEW TEST", "GRADE", "DATE", "CODE", "SET -", "SET—", "PAGE", "IPMAT"]):
+                continue
+            curr_items.append(l)
+    if curr_type and curr_items:
+        sections.append((curr_type, curr_items))
 
-    # 2. Key tables with row formats like "1 (2)", "1. 2", "1 - B", "Q1: 3"
-    row_matches = re.findall(r'(?:Q\.?\s*)?(\d{1,3})\s*[\.:\-\)]\s*\(([1-4A-D])\)|(?:Q\.?\s*)?(\d{1,3})\s*[\.:\-\t ]+([1-4A-D])\b', full_text)
-    for rm in row_matches:
-        qn_str = rm[0] or rm[2]
-        ans_str = rm[1] or rm[3]
-        if qn_str and ans_str:
-            qn = int(qn_str)
-            if 1 <= qn <= total_q and qn not in keys:
-                keys[qn] = ans_str
+    for idx in range(0, len(sections)-1):
+        if sections[idx][0] == "Q" and sections[idx+1][0] == "A":
+            q_list = [int(x) for x in sections[idx][1] if x.isdigit()]
+            a_raw = sections[idx+1][1]
+            a_list = []
+            for an in a_raw:
+                m_a = re.match(r'^[\(\[]?([A-D0-9]{1,5})[\)\]]?$', an)
+                if m_a:
+                    a_list.append(m_a.group(1))
+            for qn, an in zip(q_list, a_list):
+                keys[qn] = an
 
-    # 3. Asterisk in question choices e.g. (1*), *(2), (A*)
-    for q_n in range(1, total_q + 1):
-        q_m = re.search(rf'(?:\n|^)\s*{q_n}\.\s*(.*?)(?=(?:\n\s*\d{{1,3}}\.\s*|\n=== PAGE|\Z))', full_text, re.DOTALL)
-        if q_m:
-            b = q_m.group(1)
-            ast = re.search(r'\(([1-4A-D])\*\)|\*\(?([1-4A-D])\)?|\(([1-4A-D])\)\s*\*|\(\*([1-4A-D])\)', b)
-            if ast:
-                val = ast.group(1) or ast.group(2) or ast.group(3) or ast.group(4)
-                if val:
-                    keys[q_n] = val
+    # ── FORMAT B: Sequential Column Blocks (e.g. 1..25 then 25 answers) ──
+    i = 0
+    while i < len(lines):
+        if lines[i].isdigit():
+            start_val = int(lines[i])
+            if start_val in (1, 26, 51, 76, 101, 126, 151):
+                curr = start_val
+                idx = i
+                while idx < len(lines) and lines[idx].isdigit() and int(lines[idx]) == curr:
+                    curr += 1
+                    idx += 1
+                block_len = curr - start_val
+                if block_len >= 5:
+                    ans_tokens = []
+                    for l_idx in range(idx, len(lines)):
+                        token = lines[l_idx].strip()
+                        if token.upper() in ["MATHEMATICS", "PHYSICS", "CHEMISTRY", "BIOLOGY", "BOTANY", "ZOOLOGY", "SECTION", "PART", ""]:
+                            continue
+                        if any(h in token.upper() for h in ["REVIEW TEST", "GRADE", "DATE", "CODE", "SET -", "SET—"]):
+                            continue
+                        if token.isdigit() and int(token) == start_val + block_len:
+                            break
+                        m_val = re.match(r'^[\(\[]?([A-D0-9]{1,5})[\)\]]?$', token)
+                        if m_val:
+                            ans_tokens.append(m_val.group(1))
+                        if len(ans_tokens) == block_len:
+                            break
+                    
+                    if len(ans_tokens) == block_len:
+                        for offset in range(block_len):
+                            q_num = start_val + offset
+                            keys[q_num] = ans_tokens[offset]
+                        i = idx - 1
+        i += 1
 
     return keys
+
 
 def create_master_excel_bytes(analysis_data: Dict[str, Any]) -> bytes:
     wb = openpyxl.Workbook()
