@@ -375,76 +375,76 @@
 
       btn.disabled = true;
       progCont.classList.remove("hidden");
-      progBar.style.width = "25%";
-      progPct.textContent = "25%";
-      progLabel.textContent = "Uploading PDF and extracting pages...";
+      progBar.style.width = "5%";
+      progPct.textContent = "5%";
+      progLabel.textContent = "Starting deep academic solving job...";
 
       const formData = new FormData();
       if (payload.file) formData.append("file", payload.file);
-      if (payload.sample_filename) formData.append("sample_filename", payload.sample_filename);
+      if (payload.sample_filename) formData.append("sample_paper", payload.sample_filename);
       
       const apiKey = localStorage.getItem("GEMINI_API_KEY");
       if (apiKey) formData.append("api_key", apiKey);
 
-      let progressInterval;
       try {
-        let currentPct = 25;
-        progBar.style.width = "25%";
-        progPct.textContent = "25%";
-        progLabel.textContent = "Extracting questions & running multi-level AI solver...";
-
-        progressInterval = setInterval(() => {
-          if (currentPct < 92) {
-            currentPct += 4;
-            progBar.style.width = `${currentPct}%`;
-            progPct.textContent = `${currentPct}%`;
-            if (currentPct > 60) {
-              progLabel.textContent = "Executing 5-question micro-batches & consensus audit...";
-            }
-          }
-        }, 300);
-
-        const res = await fetch("/api/analyze?_t=" + Date.now(), {
+        const startRes = await fetch("/api/start-analysis?_t=" + Date.now(), {
           method: "POST",
           body: formData
         });
 
-        clearInterval(progressInterval);
-
-        if (!res.ok) {
-          let errMsg = "Analysis failed";
+        if (!startRes.ok) {
+          let errMsg = "Failed to start analysis job.";
           try {
-            const errData = await res.json();
+            const errData = await startRes.json();
             errMsg = errData.detail || errMsg;
           } catch(e) {}
           throw new Error(errMsg);
         }
 
-        const data = await res.json();
-        currentSessionId = data.session_id;
+        const startData = await startRes.json();
+        currentSessionId = startData.session_id;
 
-        progBar.style.width = "90%";
-        progPct.textContent = "90%";
-        progLabel.textContent = "Compiling 4-Sheet Master Excel Workbook...";
+        // Poll job status every 750ms for live progress
+        const pollTimer = setInterval(async () => {
+          try {
+            const statusRes = await fetch(`/api/job-status/${currentSessionId}?_t=${Date.now()}`, { cache: "no-store" });
+            if (!statusRes.ok) return;
 
-        const previewRes = await fetch(`/api/preview/${currentSessionId}?_t=${Date.now()}`, { cache: "no-store" });
-        if (!previewRes.ok) {
-          throw new Error("Failed to load blueprint preview from server.");
-        }
-        currentAnalysisData = await previewRes.json();
+            const job = await statusRes.json();
+            
+            if (job.status === "processing" || job.status === "queued") {
+              const p = Math.max(5, Math.min(96, job.progress || 10));
+              progBar.style.width = `${p}%`;
+              progPct.textContent = `${p}%`;
+              progLabel.textContent = job.step || "Deeply solving questions with multi-level proofs...";
+            } else if (job.status === "completed") {
+              clearInterval(pollTimer);
+              progBar.style.width = "100%";
+              progPct.textContent = "100%";
+              progLabel.textContent = "All questions solved and 4-sheet blueprint compiled!";
 
-        progBar.style.width = "100%";
-        progPct.textContent = "100%";
-        progLabel.textContent = "Analysis & Excel Generation Complete!";
+              const previewRes = await fetch(`/api/preview/${currentSessionId}?_t=${Date.now()}`, { cache: "no-store" });
+              if (!previewRes.ok) throw new Error("Failed to retrieve final blueprint preview.");
+              currentAnalysisData = await previewRes.json();
 
-        setTimeout(() => {
-          renderAnalysisUI(currentAnalysisData);
-          btn.disabled = false;
-          progCont.classList.add("hidden");
-        }, 500);
+              setTimeout(() => {
+                renderAnalysisUI(currentAnalysisData);
+                btn.disabled = false;
+                progCont.classList.add("hidden");
+              }, 400);
+            } else if (job.status === "failed") {
+              clearInterval(pollTimer);
+              throw new Error(job.error || "Analysis worker encountered an error.");
+            }
+          } catch(pollErr) {
+            clearInterval(pollTimer);
+            alert("Notice during analysis: " + pollErr.message);
+            btn.disabled = false;
+            progCont.classList.add("hidden");
+          }
+        }, 750);
 
       } catch (err) {
-        if (progressInterval) clearInterval(progressInterval);
         alert("Notice during analysis: " + err.message);
         btn.disabled = false;
         progCont.classList.add("hidden");
