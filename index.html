@@ -386,19 +386,39 @@
       const apiKey = localStorage.getItem("GEMINI_API_KEY");
       if (apiKey) formData.append("api_key", apiKey);
 
+      let progressInterval;
       try {
+        let currentPct = 50;
         progBar.style.width = "50%";
         progPct.textContent = "50%";
         progLabel.textContent = "AI Solver & Deep Error Auditor executing...";
+
+        // Dynamic progress timer to show active cloud work without freezing
+        progressInterval = setInterval(() => {
+          if (currentPct < 85) {
+            currentPct += 5;
+            progBar.style.width = `${currentPct}%`;
+            progPct.textContent = `${currentPct}%`;
+            if (currentPct > 65) {
+              progLabel.textContent = "Classifying taxonomies & reconciling answer keys...";
+            }
+          }
+        }, 800);
 
         const res = await fetch("/api/analyze?_t=" + Date.now(), {
           method: "POST",
           body: formData
         });
 
+        clearInterval(progressInterval);
+
         if (!res.ok) {
-          const errData = await res.json();
-          throw new Error(errData.detail || "Analysis failed");
+          let errMsg = "Analysis failed";
+          try {
+            const errData = await res.json();
+            errMsg = errData.detail || errMsg;
+          } catch(e) {}
+          throw new Error(errMsg);
         }
 
         const data = await res.json();
@@ -409,6 +429,9 @@
         progLabel.textContent = "Compiling 4-Sheet Master Excel Workbook...";
 
         const previewRes = await fetch(`/api/preview/${currentSessionId}?_t=${Date.now()}`, { cache: "no-store" });
+        if (!previewRes.ok) {
+          throw new Error("Failed to load blueprint preview from server.");
+        }
         currentAnalysisData = await previewRes.json();
 
         progBar.style.width = "100%";
@@ -418,10 +441,12 @@
         setTimeout(() => {
           renderAnalysisUI(currentAnalysisData);
           btn.disabled = false;
+          progCont.classList.add("hidden");
         }, 500);
 
       } catch (err) {
-        alert("Error during analysis: " + err.message);
+        if (progressInterval) clearInterval(progressInterval);
+        alert("Notice during analysis: " + err.message);
         btn.disabled = false;
         progCont.classList.add("hidden");
       }
