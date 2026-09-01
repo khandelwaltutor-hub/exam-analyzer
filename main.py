@@ -1543,6 +1543,47 @@ if __name__ == "__main__":
     uvicorn.run(app, host="0.0.0.0", port=8000)
 
 
+
+async def run_deep_analysis_worker(session_id: str, pdf_bytes: bytes, filename: str, api_key: Optional[str] = None):
+    try:
+        ANALYSIS_JOBS[session_id] = {
+            "status": "processing",
+            "progress": 10,
+            "step": "Initializing deep parsing engine & extracting questions..."
+        }
+        
+        doc = pymupdf.open(stream=pdf_bytes, filetype="pdf")
+        total_pages = len(doc)
+        
+        ANALYSIS_JOBS[session_id]["progress"] = 20
+        ANALYSIS_JOBS[session_id]["step"] = f"Extracted {total_pages} pages. Identifying sections & taxonomy..."
+
+        analysis_data = await analyze_pdf_document(pdf_bytes, filename, api_key, session_id=session_id)
+        
+        # Save Excel session
+        xlsx_bytes = create_master_excel_bytes(analysis_data)
+        out_path = os.path.join(SESSIONS_DIR, f"{session_id}.xlsx")
+        with open(out_path, "wb") as f:
+            f.write(xlsx_bytes)
+            
+        SESSIONS_CACHE[session_id] = analysis_data
+        
+        ANALYSIS_JOBS[session_id] = {
+            "status": "completed",
+            "progress": 100,
+            "step": "All questions solved and 4-sheet blueprint compiled successfully!",
+            "session_id": session_id,
+            "data": analysis_data
+        }
+    except Exception as e:
+        traceback.print_exc()
+        ANALYSIS_JOBS[session_id] = {
+            "status": "failed",
+            "progress": 0,
+            "error": str(e)
+        }
+
+
 @app.post("/api/start-analysis")
 async def start_analysis_job(
     file: Optional[UploadFile] = File(None),
