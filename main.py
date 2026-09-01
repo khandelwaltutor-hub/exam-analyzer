@@ -773,11 +773,10 @@ async def solve_questions_with_gemini(
     api_key: Optional[str] = None
 ) -> List[Dict[str, Any]]:
     """
-    Multi-Model Intelligent Solver Engine:
-    1. Primary: Gemini 2.5 Flash
-    2. Failover Models: Gemini 2.0 Flash -> Gemini 1.5 Flash -> Gemini 1.5 Pro
-    3. Multi-Provider Support: Groq (Llama 3.3 70B), OpenAI (GPT-4o-mini), OpenRouter
-    4. Zero-Key Fallback: Deterministic Consensus & Mathematical Rule Derivation
+    BLIND INDEPENDENT AI SOLVER:
+    Solves questions strictly from first principles WITHOUT seeing the teacher's key.
+    Then compares the derived solution against the teacher's answer key.
+    Discrepancies are flagged as MISMATCH with full mathematical/logical justification.
     """
     effective_api_key = api_key or os.environ.get("GEMINI_API_KEY") or os.environ.get("GOOGLE_API_KEY") or os.environ.get("GROQ_API_KEY") or os.environ.get("OPENAI_API_KEY")
     
@@ -789,29 +788,28 @@ async def solve_questions_with_gemini(
             q["reason_for_mismatch"] = "None"
         return questions
 
-    # Batch solve in groups of 15
-    batch_size = 15
+    # Batch solve in groups of 12 for high accuracy
+    batch_size = 12
     for b_idx in range(0, len(questions), batch_size):
         batch = questions[b_idx:b_idx+batch_size]
         prompt_items = []
         for q in batch:
-            q_text_sample = q.get("text", q.get("topic_name", ""))[:300]
+            q_text_sample = q.get("text", q.get("topic_name", ""))[:450]
             prompt_items.append(
-                f"Question {q['q_no']} ({q.get('subject','')} / {q.get('chapter_name','')}): {q_text_sample}\n"
-                f"[Teacher Marked Answer Key: {q.get('teacher_answer', '?')}]"
+                f"Question {q['q_no']} ({q.get('subject','')} / {q.get('chapter_name','')}):\n{q_text_sample}"
             )
         
         prompt_text = (
-            "You are an academic exam solver and competitive audit expert for JEE Main, NEET, and IPMAT.\n"
+            "You are a master academic exam solver and competitive audit expert for JEE Main, NEET, and IPMAT.\n"
             "Carefully solve each question independently from first principles. Choose the single best option (1, 2, 3, 4) or numerical value.\n"
-            "Compare your solved answer with the Teacher Marked Answer Key.\n"
-            "If your answer matches the teacher answer, set status to 'MATCH' and reason to 'None'.\n"
-            "If your solved answer differs from teacher answer, set status to 'MISMATCH' and provide a concise 1-line reason explaining why your derivation is mathematically/linguistically correct.\n\n"
-            "Return ONLY a valid JSON array of objects with keys: 'q_no' (int), 'ai_answer' (str), 'status' ('MATCH' or 'MISMATCH'), 'reason_for_mismatch' (str).\n\n"
+            "DO NOT guess. Derive the exact answer mathematically or linguistically.\n\n"
+            "Return ONLY a valid JSON array of objects with exact keys:\n"
+            "  'q_no': int (e.g. 1),\n"
+            "  'ai_answer': str (e.g. '1', '2', '3', '4' or numerical value),\n"
+            "  'explanation': str (concise 1-line justification of how this answer was derived)\n\n"
             "Questions to solve:\n" + "\n\n".join(prompt_items)
         )
 
-        # Multi-Model Cascade List
         models_cascade = [
             "gemini-2.5-flash",
             "gemini-2.0-flash",
@@ -844,14 +842,21 @@ async def solve_questions_with_gemini(
                 solved_map = {item["q_no"]: item for item in solved_batch if "q_no" in item}
                 for q in batch:
                     qno = q["q_no"]
+                    t_ans = str(q.get("teacher_answer", "")).strip()
                     if qno in solved_map:
                         sol = solved_map[qno]
-                        q["ai_answer"] = str(sol.get("ai_answer", q["teacher_answer"])).strip()
-                        q["status"] = str(sol.get("status", "MATCH")).upper()
-                        q["reason_for_mismatch"] = str(sol.get("reason_for_mismatch", "None")).strip()
+                        ai_ans = str(sol.get("ai_answer", t_ans)).strip()
+                        expl = str(sol.get("explanation", "Solved independently")).strip()
+                        q["ai_answer"] = ai_ans
+                        if ai_ans and t_ans and (ai_ans.upper() == t_ans.upper()):
+                            q["status"] = "MATCH"
+                            q["reason_for_mismatch"] = "None"
+                        else:
+                            q["status"] = "MISMATCH"
+                            q["reason_for_mismatch"] = f"AI derived Option {ai_ans} ({expl}), but Teacher Key marked Option {t_ans}."
                 batch_solved = True
             except Exception as e:
-                print(f"[Groq Solver Fallback] {e}")
+                print(f"[Groq Solver Error] {e}")
 
         # ── Branch 2: Google Gemini Multi-Model Cascade ────────────────
         if not batch_solved:
@@ -882,22 +887,29 @@ async def solve_questions_with_gemini(
                     solved_map = {item["q_no"]: item for item in solved_batch if "q_no" in item}
                     for q in batch:
                         qno = q["q_no"]
+                        t_ans = str(q.get("teacher_answer", "")).strip()
                         if qno in solved_map:
                             sol = solved_map[qno]
-                            q["ai_answer"] = str(sol.get("ai_answer", q["teacher_answer"])).strip()
-                            q["status"] = str(sol.get("status", "MATCH")).upper()
-                            q["reason_for_mismatch"] = str(sol.get("reason_for_mismatch", "None")).strip()
+                            ai_ans = str(sol.get("ai_answer", t_ans)).strip()
+                            expl = str(sol.get("explanation", "Derived from first principles")).strip()
+                            q["ai_answer"] = ai_ans
+                            if ai_ans and t_ans and (ai_ans.upper() == t_ans.upper()):
+                                q["status"] = "MATCH"
+                                q["reason_for_mismatch"] = "None"
+                            else:
+                                q["status"] = "MISMATCH"
+                                q["reason_for_mismatch"] = f"AI derived Option {ai_ans} ({expl}), but Teacher Key marked Option {t_ans}."
                         else:
                             q["ai_answer"] = q["teacher_answer"]
                             q["status"] = "MATCH"
                             q["reason_for_mismatch"] = "None"
                             
                     batch_solved = True
-                    break  # Succeeded on this model, no need to try cascade fallbacks
+                    break
                 except Exception as e:
-                    print(f"[{model_name} rate-limit/fallback, trying next model in cascade...] {e}")
+                    print(f"[{model_name} rate-limit/fallback, trying next...] {e}")
 
-        # ── Branch 3: Deterministic Fallback ──────────────────────────
+        # ── Branch 3: Fallback ─────────────────────────────────────────
         if not batch_solved:
             for q in batch:
                 q["ai_answer"] = q.get("teacher_answer", "1")
@@ -1126,6 +1138,16 @@ async def analyze_pdf_document(pdf_bytes: bytes, filename: str, api_key: Optiona
 
     # ─── Comprehensive Error Detection ─────────────────────────────
     errors = []
+
+    # 0. Log AI Solution vs Teacher Answer Key Mismatches
+    for q in questions:
+        if q.get("status") == "MISMATCH":
+            errors.append((
+                f"Q{q['q_no']}",
+                q.get("subject", "General"),
+                "Answer Key Discrepancy (AI Mismatch)",
+                q.get("reason_for_mismatch", "AI derived answer differs from teacher marked option.")
+            ))
 
     for eq in extracted_questions:
         qno = eq.get("q_no", 0)
