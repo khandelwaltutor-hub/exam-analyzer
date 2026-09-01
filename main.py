@@ -1497,13 +1497,20 @@ async def analyze_pdf_document(pdf_bytes: bytes, filename: str, api_key: Optiona
 # =====================================================================
 @app.get("/api/sample-papers")
 async def list_sample_papers():
-    exam_dir = "d:\\Exam"
-    papers = []
-    if os.path.exists(exam_dir):
-        for f in os.listdir(exam_dir):
-            if f.endswith(".pdf"):
-                papers.append(f)
-    return {"sample_papers": sorted(papers)}
+    papers = set()
+    candidate_dirs = [
+        os.path.join(BASE_DIR, "samples"),
+        r"d:\Exam",
+        r"d:\ExamAnalyzer\samples",
+        "/opt/render/project/src/samples",
+        "./samples"
+    ]
+    for c_dir in candidate_dirs:
+        if os.path.exists(c_dir):
+            for f in os.listdir(c_dir):
+                if f.lower().endswith(".pdf"):
+                    papers.add(f)
+    return {"sample_papers": sorted(list(papers))}
 
 @app.post("/api/analyze")
 async def analyze_pdf(
