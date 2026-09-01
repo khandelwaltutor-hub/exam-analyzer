@@ -28,6 +28,14 @@ app.add_middleware(
     allow_headers=["*"],
 )
 
+@app.middleware("http")
+async def add_no_cache_headers(request, call_next):
+    response = await call_next(request)
+    response.headers["Cache-Control"] = "no-store, no-cache, must-revalidate, max-age=0"
+    response.headers["Pragma"] = "no-cache"
+    response.headers["Expires"] = "0"
+    return response
+
 BASE_DIR = os.path.dirname(os.path.abspath(__file__))
 SESSIONS_DIR = os.path.join(BASE_DIR, "sessions")
 os.makedirs(SESSIONS_DIR, exist_ok=True)
@@ -741,138 +749,7 @@ async def analyze_pdf_document(pdf_bytes: bytes, filename: str, api_key: Optiona
     total_pages = len(doc)
     clean_base = filename.replace(".pdf", "").replace("—", "-").strip()
 
-    # 1. Check pre-verified Excel lookup
-    candidates = [
-        os.path.join("d:\\Exam", f"{clean_base}.xlsx"),
-        os.path.join("d:\\ExamAnalyzer", f"{clean_base}.xlsx"),
-        os.path.join("d:\\Solution", f"{clean_base}.xlsx"),
-        os.path.join("d:\\Exam", f"{filename.replace('.pdf', '')}.xlsx"),
-        os.path.join("d:\\ExamAnalyzer", f"{filename.replace('.pdf', '')}.xlsx"),
-        os.path.join("d:\\Solution", f"{filename.replace('.pdf', '')}.xlsx"),
-    ]
-
-    for cand in candidates:
-        if os.path.exists(cand):
-            try:
-                wb = openpyxl.load_workbook(cand, data_only=True)
-                sheet_name = None
-                if "Question Level Analysis" in wb.sheetnames:
-                    sheet_name = "Question Level Analysis"
-                elif "Question Analysis" in wb.sheetnames:
-                    sheet_name = "Question Analysis"
-                    
-                if sheet_name:
-                    ws1 = wb[sheet_name]
-                    header_row_idx = None
-                    for r_idx in range(1, 6):
-                        row_vals = [str(c.value).strip().lower() if c.value is not None else "" for c in ws1[r_idx]]
-                        has_q = any(v in ["q.no", "q. no", "q no", "q_no", "question no", "q. no.", "q.no."] or v.startswith("q.no") for v in row_vals)
-                        has_sub_or_ans = any("subject" in v or "answer" in v or "chapter" in v for v in row_vals)
-                        if has_q and has_sub_or_ans:
-                            header_row_idx = r_idx
-                            break
-                    if not header_row_idx:
-                        header_row_idx = 1
-                            
-                    headers = [str(c.value).strip().lower() if c.value is not None else "" for c in ws1[header_row_idx]]
-                    col_map = {}
-                    for idx, h in enumerate(headers):
-                        if "q. no" in h or "q no" in h or "question no" in h or "q.no" in h:
-                            col_map["q_no"] = idx
-                        elif "teacher" in h or "correct ans" in h:
-                            col_map["teacher_answer"] = idx
-                        elif "ai" in h:
-                            col_map["ai_answer"] = idx
-                        elif "status" in h:
-                            col_map["status"] = idx
-                        elif "reason" in h or "mismatch" in h or "remarks" in h:
-                            col_map["reason"] = idx
-                        elif "sub subject" in h or "sub-subject" in h:
-                            col_map["sub_subject"] = idx
-                        elif "subject" in h:
-                            col_map["subject"] = idx
-                        elif "chapter" in h:
-                            col_map["chapter_name"] = idx
-                        elif "topic" in h or "concept" in h:
-                            col_map["topic_name"] = idx
-                        elif "type" in h:
-                            col_map["question_type"] = idx
-                        elif "time" in h:
-                            col_map["time_required"] = idx
-                        elif "diff" in h:
-                            col_map["difficulty"] = idx
-
-                    questions = []
-                    for row in ws1.iter_rows(min_row=header_row_idx + 1, values_only=True):
-                        if row and row[0] is not None:
-                            q_num = row[col_map.get("q_no", 0)]
-                            if str(q_num).isdigit() or (isinstance(q_num, (int, float)) and q_num > 0):
-                                q_num = int(q_num)
-                            else:
-                                continue
-                                
-                            t_ans = row[col_map.get("teacher_answer", 1)] if "teacher_answer" in col_map else (row[1] if len(row)>1 else "")
-                            ai_ans = row[col_map.get("ai_answer", 2)] if "ai_answer" in col_map else str(t_ans)
-                            status = row[col_map.get("status", 3)] if "status" in col_map else "MATCH"
-                            reason = row[col_map.get("reason", 4)] if "reason" in col_map else "None"
-                            subj = row[col_map.get("subject", 5)] if "subject" in col_map else "General"
-                            
-                            if "sub_subject" in col_map:
-                                sub_sub = row[col_map["sub_subject"]]
-                            else:
-                                if subj == "Chemistry":
-                                    sub_sub = "PC"
-                                elif subj == "Biology":
-                                    sub_sub = "Botany"
-                                else:
-                                    sub_sub = subj
-                                    
-                            ch = row[col_map.get("chapter_name", 6)] if "chapter_name" in col_map else (row[6] if len(row)>6 else "General")
-                            top = row[col_map.get("topic_name", 7)] if "topic_name" in col_map else (row[7] if len(row)>7 else "Topic")
-                            qtype = row[col_map.get("question_type", 8)] if "question_type" in col_map else "Single Choice MCQ"
-                            
-                            raw_time = row[col_map.get("time_required", 9)] if "time_required" in col_map else 1.0
-                            try:
-                                time_val = float(raw_time)
-                            except Exception:
-                                time_val = 1.0
-                                
-                            raw_diff = str(row[col_map.get("difficulty", 10)]) if "difficulty" in col_map else "M"
-                            diff_val = raw_diff.upper() if raw_diff.upper() in ["E", "M", "D"] else "M"
-
-                            q_obj = {
-                                "q_no": q_num,
-                                "teacher_answer": str(t_ans),
-                                "ai_answer": str(ai_ans),
-                                "status": str(status),
-                                "reason_for_mismatch": str(reason),
-                                "subject": str(subj),
-                                "sub_subject": str(sub_sub),
-                                "chapter_name": str(ch),
-                                "topic_name": str(top),
-                                "question_type": str(qtype),
-                                "time_required": time_val,
-                                "difficulty": diff_val
-                            }
-                            questions.append(q_obj)
-                            
-                    errors = []
-                    if "Error Summary" in wb.sheetnames:
-                        ws3 = wb["Error Summary"]
-                        for row in ws3.iter_rows(min_row=2, values_only=True):
-                            if row and row[0] is not None:
-                                errors.append((str(row[0]), str(row[1]), str(row[2]), str(row[3]) if len(row) > 3 else "None"))
-                                
-                    if questions:
-                        return {
-                            "exam_title": clean_base,
-                            "total_pages": total_pages,
-                            "questions": questions,
-                            "errors": errors if errors else [("—", "All Subjects", "No Errors Detected", "Pre-verified blueprint loaded successfully.")]
-                        }
-            except Exception as e:
-                print(f"Error reading pre-verified cache {cand}: {e}")
-
+    # 1. Direct Dynamic Analysis (No stale cache — always fresh extraction)
     # 2. Dynamic Question and Section Extractor
     pages_text = []
     full_text = ""
