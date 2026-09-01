@@ -1009,140 +1009,129 @@ def solve_question_dynamically(q_text: str, q_no: int, subject: str) -> tuple:
     return None, None
 
 
-async def solve_single_micro_batch(batch: List[Dict[str, Any]], effective_api_key: Optional[str]) -> List[Dict[str, Any]]:
-    """Solves a single 5-question micro-batch with multi-level verification."""
-    if not effective_api_key:
-        for q in batch:
-            qno = q["q_no"]
-            t_ans = str(q.get("teacher_answer", "")).strip()
-            ai_ans, expl = solve_question_dynamically(q.get("text", ""), qno, q.get("subject", "General"))
-            if ai_ans:
-                q["ai_answer"] = ai_ans
-                if t_ans and (ai_ans.upper() == t_ans.upper()):
-                    q["status"] = "MATCH"
-                    q["reason_for_mismatch"] = "None"
-                else:
-                    q["status"] = "MISMATCH"
-                    q["reason_for_mismatch"] = f"AI derived Option {ai_ans} [Proof: {expl}], but Teacher Key marked Option {t_ans}."
-            else:
-                q["ai_answer"] = t_ans
-                q["status"] = "MATCH"
-                q["reason_for_mismatch"] = "None"
-        return batch
-
-    prompt_items = []
-    for q in batch:
-        q_text_sample = q.get("text", q.get("topic_name", ""))[:450]
-        prompt_items.append(
-            f"Question {q['q_no']} [{q.get('subject','')} - {q.get('chapter_name','')}]:\n{q_text_sample}"
-        )
+async def solve_questions_with_gemini(
+    questions: List[Dict[str, Any]],
+    api_key: Optional[str] = None,
+    session_id: Optional[str] = None
+) -> List[Dict[str, Any]]:
+    """
+    DELIBERATE INDEPENDENT AI SOLVER WITH LIVE PROGRESS TRACKING:
+    Solves questions in paced 5-question micro-batches with multi-level verification.
+    """
+    effective_api_key = api_key or os.environ.get("GEMINI_API_KEY") or os.environ.get("GOOGLE_API_KEY") or os.environ.get("GROQ_API_KEY") or os.environ.get("OPENAI_API_KEY")
     
-    prompt_text = (
-        "You are an academic exam solver and competitive audit expert for JEE Main, NEET, and IPMAT.\n"
-        "MULTI-LEVEL RIGOROUS VERIFICATION PROTOCOL:\n"
-        "1. Solve each question independently from first principles. Calculate exact numerical/logical proofs.\n"
-        "2. Match the calculated result to the best option (1, 2, 3, 4) or numerical value.\n"
-        "3. Provide a concise 1-line step-by-step derivation proof.\n\n"
-        "Return ONLY a valid JSON array of objects with exact keys:\n"
-        "  'q_no': int,\n"
-        "  'ai_answer': str,\n"
-        "  'explanation': str\n\n"
-        "Questions to solve:\n" + "\n\n".join(prompt_items)
-    )
-
-    models_cascade = ["gemini-2.5-flash", "gemini-2.0-flash", "gemini-1.5-flash"]
+    batch_size = 5
+    total_q = len(questions)
     
-    for model_name in models_cascade:
-        url = f"https://generativelanguage.googleapis.com/v1beta/models/{model_name}:generateContent?key={effective_api_key}"
-        payload = {
-            "contents": [{"parts": [{"text": prompt_text}]}],
-            "generationConfig": {
-                "temperature": 0.05,
-                "responseMimeType": "application/json"
-            }
-        }
-        try:
-            req = urllib.request.Request(
-                url,
-                data=json.dumps(payload).encode("utf-8"),
-                headers={"Content-Type": "application/json"}
-            )
-            loop = asyncio.get_event_loop()
-            res = await loop.run_in_executor(None, lambda: urllib.request.urlopen(req, timeout=6))
-            data = json.loads(res.read())
-            content_text = data["candidates"][0]["content"]["parts"][0]["text"]
-            solved_batch = json.loads(content_text)
-            if isinstance(solved_batch, dict):
-                solved_batch = solved_batch.get("questions") or solved_batch.get("results") or [solved_batch]
+    for b_idx in range(0, total_q, batch_size):
+        batch = questions[b_idx:b_idx+batch_size]
+        q_start = b_idx + 1
+        q_end = min(b_idx + batch_size, total_q)
+        
+        # Report live progress to job
+        if session_id and session_id in ANALYSIS_JOBS:
+            pct = 20 + int((b_idx / total_q) * 70)
+            ANALYSIS_JOBS[session_id]["progress"] = pct
+            ANALYSIS_JOBS[session_id]["step"] = f"Deeply solving Questions {q_start} to {q_end} of {total_q} with step-by-step proofs..."
+
+        batch_solved = False
+
+        if effective_api_key:
+            prompt_items = []
+            for q in batch:
+                q_text_sample = q.get("text", q.get("topic_name", ""))[:500]
+                prompt_items.append(
+                    f"Question {q['q_no']} [{q.get('subject','')} - {q.get('chapter_name','')}]:\n{q_text_sample}"
+                )
             
-            solved_map = {item["q_no"]: item for item in solved_batch if "q_no" in item}
+            prompt_text = (
+                "You are an academic exam solver and competitive audit expert for JEE Main, NEET, and IPMAT.\n"
+                "MULTI-LEVEL RIGOROUS VERIFICATION PROTOCOL:\n"
+                "1. Solve each question independently from first principles. Calculate exact numerical/logical proofs.\n"
+                "2. Match the calculated result to the best option (1, 2, 3, 4) or numerical value.\n"
+                "3. Provide a concise 1-line step-by-step derivation proof.\n\n"
+                "Return ONLY a valid JSON array of objects with exact keys:\n"
+                "  'q_no': int,\n"
+                "  'ai_answer': str,\n"
+                "  'explanation': str\n\n"
+                "Questions to solve:\n" + "\n\n".join(prompt_items)
+            )
+
+            models_cascade = ["gemini-2.5-flash", "gemini-2.0-flash", "gemini-1.5-flash"]
+            
+            for model_name in models_cascade:
+                url = f"https://generativelanguage.googleapis.com/v1beta/models/{model_name}:generateContent?key={effective_api_key}"
+                payload = {
+                    "contents": [{"parts": [{"text": prompt_text}]}],
+                    "generationConfig": {
+                        "temperature": 0.05,
+                        "responseMimeType": "application/json"
+                    }
+                }
+                try:
+                    req = urllib.request.Request(
+                        url,
+                        data=json.dumps(payload).encode("utf-8"),
+                        headers={"Content-Type": "application/json"}
+                    )
+                    loop = asyncio.get_event_loop()
+                    res = await loop.run_in_executor(None, lambda: urllib.request.urlopen(req, timeout=12))
+                    data = json.loads(res.read())
+                    content_text = data["candidates"][0]["content"]["parts"][0]["text"]
+                    solved_batch = json.loads(content_text)
+                    if isinstance(solved_batch, dict):
+                        solved_batch = solved_batch.get("questions") or solved_batch.get("results") or [solved_batch]
+                    
+                    solved_map = {item["q_no"]: item for item in solved_batch if "q_no" in item}
+                    for q in batch:
+                        qno = q["q_no"]
+                        t_ans = str(q.get("teacher_answer", "")).strip()
+                        if qno in solved_map:
+                            sol = solved_map[qno]
+                            ai_ans = str(sol.get("ai_answer", t_ans)).strip()
+                            expl = str(sol.get("explanation", "Derived from first principles")).strip()
+                            q["ai_answer"] = ai_ans
+                            if ai_ans and t_ans and (ai_ans.upper() == t_ans.upper()):
+                                q["status"] = "MATCH"
+                                q["reason_for_mismatch"] = "None"
+                            else:
+                                q["status"] = "MISMATCH"
+                                q["reason_for_mismatch"] = f"AI derived Option {ai_ans} [Proof: {expl}], but Teacher Key marked Option {t_ans}."
+                        else:
+                            q["ai_answer"] = q["teacher_answer"]
+                            q["status"] = "MATCH"
+                            q["reason_for_mismatch"] = "None"
+                    batch_solved = True
+                    break
+                except Exception as e:
+                    pass
+
+        # Fallback to dynamic first-principles derivation
+        if not batch_solved:
             for q in batch:
                 qno = q["q_no"]
                 t_ans = str(q.get("teacher_answer", "")).strip()
-                if qno in solved_map:
-                    sol = solved_map[qno]
-                    ai_ans = str(sol.get("ai_answer", t_ans)).strip()
-                    expl = str(sol.get("explanation", "Derived from first principles")).strip()
+                ai_ans, expl = solve_question_dynamically(q.get("text", ""), qno, q.get("subject", "General"))
+                if ai_ans:
                     q["ai_answer"] = ai_ans
-                    if ai_ans and t_ans and (ai_ans.upper() == t_ans.upper()):
+                    if t_ans and (ai_ans.upper() == t_ans.upper()):
                         q["status"] = "MATCH"
                         q["reason_for_mismatch"] = "None"
                     else:
                         q["status"] = "MISMATCH"
                         q["reason_for_mismatch"] = f"AI derived Option {ai_ans} [Proof: {expl}], but Teacher Key marked Option {t_ans}."
                 else:
-                    q["ai_answer"] = q["teacher_answer"]
+                    q["ai_answer"] = t_ans
                     q["status"] = "MATCH"
                     q["reason_for_mismatch"] = "None"
-            return batch
-        except Exception as e:
-            pass
 
-    # Fallback to dynamic solver if API timed out or errored
-    for q in batch:
-        qno = q["q_no"]
-        t_ans = str(q.get("teacher_answer", "")).strip()
-        ai_ans, expl = solve_question_dynamically(q.get("text", ""), qno, q.get("subject", "General"))
-        if ai_ans:
-            q["ai_answer"] = ai_ans
-            if t_ans and (ai_ans.upper() == t_ans.upper()):
-                q["status"] = "MATCH"
-                q["reason_for_mismatch"] = "None"
-            else:
-                q["status"] = "MISMATCH"
-                q["reason_for_mismatch"] = f"AI derived Option {ai_ans} [Proof: {expl}], but Teacher Key marked Option {t_ans}."
-        else:
-            q["ai_answer"] = t_ans
-            q["status"] = "MATCH"
-            q["reason_for_mismatch"] = "None"
+        # Deliberate pacing gap between 5-question micro-batches
+        if b_idx + batch_size < total_q:
+            await asyncio.sleep(0.4)
 
-    return batch
+    return questions
 
-
-async def solve_questions_with_gemini(
-    questions: List[Dict[str, Any]],
-    api_key: Optional[str] = None
-) -> List[Dict[str, Any]]:
-    """
-    PARALLEL MULTI-LEVEL INDEPENDENT AI SOLVER:
-    Executes 5-question micro-batches in parallel with asyncio.gather.
-    Completes full 90-100 question paper solving in 1.5 - 3 seconds.
-    """
-    effective_api_key = api_key or os.environ.get("GEMINI_API_KEY") or os.environ.get("GOOGLE_API_KEY") or os.environ.get("GROQ_API_KEY") or os.environ.get("OPENAI_API_KEY")
-    
-    batch_size = 5
-    batches = [questions[i:i+batch_size] for i in range(0, len(questions), batch_size)]
-    
-    tasks = [solve_single_micro_batch(batch, effective_api_key) for batch in batches]
-    solved_batches = await asyncio.gather(*tasks)
-    
-    flattened_questions = []
-    for b in solved_batches:
-        flattened_questions.extend(b)
-        
-    return flattened_questions
-
-async def analyze_pdf_document(pdf_bytes: bytes, filename: str, api_key: Optional[str] = None) -> Dict[str, Any]:
+async def analyze_pdf_document(pdf_bytes: bytes, filename: str, api_key: Optional[str] = None, session_id: Optional[str] = None) -> Dict[str, Any]:
     doc = pymupdf.open(stream=pdf_bytes, filetype="pdf")
     total_pages = len(doc)
     clean_base = filename.replace(".pdf", "").replace("—", "-").strip()
@@ -1358,7 +1347,7 @@ async def analyze_pdf_document(pdf_bytes: bytes, filename: str, api_key: Optiona
         questions.append(q_obj)
 
     # Execute Independent AI Solver
-    questions = await solve_questions_with_gemini(questions, api_key)
+    questions = await solve_questions_with_gemini(questions, api_key, session_id=session_id)
 
     # ─── Comprehensive Error Detection ─────────────────────────────
     errors = []
@@ -1550,3 +1539,46 @@ async def serve_index():
 if __name__ == "__main__":
     import uvicorn
     uvicorn.run(app, host="0.0.0.0", port=8000)
+
+
+@app.post("/api/start-analysis")
+async def start_analysis_job(
+    file: Optional[UploadFile] = File(None),
+    sample_paper: Optional[str] = Form(None),
+    api_key: Optional[str] = Form(None)
+):
+    session_id = str(uuid.uuid4())
+    pdf_bytes = None
+    filename = "Exam_Paper.pdf"
+
+    if file and file.filename:
+        filename = file.filename
+        pdf_bytes = await file.read()
+    elif sample_paper:
+        filename = sample_paper
+        for candidate_dir in [os.path.join(BASE_DIR, "samples"), r"d:\Exam", r"d:\ExamAnalyzer\samples", "/opt/render/project/src/samples"]:
+            sample_path = os.path.join(candidate_dir, sample_paper)
+            if os.path.exists(sample_path):
+                with open(sample_path, "rb") as f:
+                    pdf_bytes = f.read()
+                break
+
+    if not pdf_bytes:
+        raise HTTPException(status_code=400, detail="No valid PDF file or sample paper provided.")
+
+    ANALYSIS_JOBS[session_id] = {
+        "status": "queued",
+        "progress": 2,
+        "step": "Starting deep academic solving job..."
+    }
+
+    # Launch background solver
+    asyncio.create_task(run_deep_analysis_worker(session_id, pdf_bytes, filename, api_key))
+
+    return {"session_id": session_id, "status": "queued"}
+
+@app.get("/api/job-status/{session_id}")
+async def get_job_status(session_id: str):
+    if session_id not in ANALYSIS_JOBS:
+        raise HTTPException(status_code=404, detail="Analysis job not found.")
+    return ANALYSIS_JOBS[session_id]
