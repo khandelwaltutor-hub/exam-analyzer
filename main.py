@@ -432,32 +432,50 @@ def classify_question_taxonomy(q_text: str, detected_subject: str, detected_sub_
     return detected_sub_subject, "Core Chapter", "Standard Coaching Topic"
 
 
-def extract_clean_answer_keys(text: str, total_q: int) -> Dict[int, str]:
+def extract_clean_answer_keys(full_text: str, total_q: int) -> Dict[int, str]:
     keys: Dict[int, str] = {}
 
-    # 1. Parse Block Table Format from Answer Key page(s)
-    ans_pages = list(re.finditer(r'(?:ANSWER\s*KEY|Answer\s*Key|ANSWERS)(.*?)(?=\n=== PAGE|\Z)', text, re.DOTALL | re.IGNORECASE))
-    if ans_pages:
-        ak_text = ans_pages[-1].group(1)
-        blocks = re.split(r'Q\.?\s*No\.?', ak_text, flags=re.IGNORECASE)
-        for b in blocks:
-            if not b.strip() or 'Ans' not in b:
-                continue
-            parts = re.split(r'Ans\.?', b, flags=re.IGNORECASE)
-            if len(parts) >= 2:
-                q_part = parts[0].strip()
-                ans_part = parts[1].strip()
-                q_nums = [int(n) for n in re.findall(r'\b\d{1,3}\b', q_part)]
-                ans_vals = [a.strip() for a in ans_part.splitlines() if a.strip() and not a.strip().startswith('===')]
-                for qn, av in zip(q_nums, ans_vals):
-                    if 1 <= qn <= total_q:
-                        av_clean = re.sub(r'[^\w,]', '', av)
-                        if av_clean:
-                            keys[qn] = av_clean
+    # 1. Search for Q.No. / Ans. column blocks across the entire text (especially last 3 pages)
+    # Match patterns like Q. No. \n 1 \n 2 ... \n Ans. \n 2 \n 1 ...
+    blocks = re.split(r'Q\.?\s*No\.?', full_text, flags=re.IGNORECASE)
+    for b in blocks[1:]:
+        if 'Ans' not in b:
+            continue
+        parts = re.split(r'Ans\.?', b, flags=re.IGNORECASE)
+        if len(parts) >= 2:
+            q_part = parts[0].strip()
+            ans_part = parts[1].strip()
+            # Extract q numbers
+            q_lines = [int(n) for n in re.findall(r'\b\d{1,3}\b', q_part)]
+            # Extract answer values (single digits, letters A-D, or numericals)
+            ans_lines = []
+            for l in ans_part.splitlines():
+                l_s = l.strip()
+                if not l_s or l_s.startswith('===') or 'PAGE' in l_s:
+                    continue
+                if re.match(r'^Q\.?\s*No', l_s, re.IGNORECASE):
+                    break
+                m_ans = re.search(r'\b([1-4A-D]|\d+(?:\.\d+)?)\b', l_s)
+                if m_ans:
+                    ans_lines.append(m_ans.group(1))
+            
+            for qn, av in zip(q_lines, ans_lines):
+                if 1 <= qn <= total_q + 15:
+                    keys[qn] = av
 
-    # 2. Extract from Question Options (Asterisks e.g. (1*), (*2), (A*))
+    # 2. Key tables with row formats like "1 (2)", "1. 2", "1 - B", "Q1: 3"
+    row_matches = re.findall(r'(?:Q\.?\s*)?(\d{1,3})\s*[\.:\-\)]\s*\(([1-4A-D])\)|(?:Q\.?\s*)?(\d{1,3})\s*[\.:\-\t ]+([1-4A-D])\b', full_text)
+    for rm in row_matches:
+        qn_str = rm[0] or rm[2]
+        ans_str = rm[1] or rm[3]
+        if qn_str and ans_str:
+            qn = int(qn_str)
+            if 1 <= qn <= total_q and qn not in keys:
+                keys[qn] = ans_str
+
+    # 3. Asterisk in question choices e.g. (1*), *(2), (A*)
     for q_n in range(1, total_q + 1):
-        q_m = re.search(rf'(?:\n|^)\s*{q_n}\.\s*(.*?)(?=(?:\n\s*\d{{1,3}}\.\s*|\n=== PAGE|\Z))', text, re.DOTALL)
+        q_m = re.search(rf'(?:\n|^)\s*{q_n}\.\s*(.*?)(?=(?:\n\s*\d{{1,3}}\.\s*|\n=== PAGE|\Z))', full_text, re.DOTALL)
         if q_m:
             b = q_m.group(1)
             ast = re.search(r'\(([1-4A-D])\*\)|\*\(?([1-4A-D])\)?|\(([1-4A-D])\)\s*\*|\(\*([1-4A-D])\)', b)
@@ -468,9 +486,6 @@ def extract_clean_answer_keys(text: str, total_q: int) -> Dict[int, str]:
 
     return keys
 
-# =====================================================================
-# MASTER EXCEL WORKBOOK GENERATOR (4 SHEETS)
-# =====================================================================
 def create_master_excel_bytes(analysis_data: Dict[str, Any]) -> bytes:
     wb = openpyxl.Workbook()
     font_family = "Calibri"
