@@ -439,11 +439,11 @@ def classify_question_taxonomy(q_text: str, detected_subject: str, detected_sub_
 
 def extract_clean_answer_keys(full_text: str, total_q: int, doc: Optional[pymupdf.Document] = None) -> Dict[int, str]:
     """
-    UNIFIED MULTI-FORMAT ANSWER KEY EXTRACTOR:
-    Extracts 100% of teacher answer keys across all competitive exam formats:
-    - Format 1: Token-based NEET & Multi-column Grid Parser (180/180 keys)
-    - Format 2: Q.No. ... Ans. Table Sections (IPMAT, Gr 12 RT-9, Biology CT)
-    - Format 3: Sequential Column Blocks (RT-5 XI, RT-5 X, RT-8 SET-A/B)
+    UNIVERSAL MULTI-FORMAT ANSWER KEY EXTRACTOR (JEE Advanced, Main, NEET, IPMAT):
+    - Format 1: Multi-Subject / Column Runs with ABCD multi-correct & integers (e.g. AT-4, RT-5 Adv, RT-8 Adv)
+    - Format 2: Token-based NEET & Multi-column Grid Parser (180/180 keys)
+    - Format 3: Q.No. ... Ans. Table Sections (IPMAT, Gr 12 RT-9, Biology CT)
+    - Format 4: In-line Question Solutions (Ans. ACD, Ans. (9), Ans. 210)
     """
     keys = {}
     
@@ -451,15 +451,49 @@ def extract_clean_answer_keys(full_text: str, total_q: int, doc: Optional[pymupd
     if doc:
         for p_idx, page in enumerate(doc):
             pt = page.get_text()
-            if re.search(r'(?:ANSWER\s*KEY|Answer\s*Key|REVIEW\s*TEST.*SET)', pt, re.IGNORECASE) or p_idx >= len(doc) - 4:
+            if re.search(r'(?:^|\n)\s*Answer\s*Key', pt, re.IGNORECASE) or re.search(r'(?:^|\n)\s*ANSWER\s*KEY', pt) or p_idx >= len(doc) - 2:
                 key_pages_text.append(pt)
     
     if not key_pages_text:
         key_pages_text = [full_text]
 
     combined_text = "\n".join(key_pages_text)
+    lines = [l.strip() for l in combined_text.splitlines() if l.strip()]
 
-    # ── FORMAT A: Token-based NEET & Multi-column Grid Parser ─────
+    # ── FORMAT 1: Sequential Column / Subject Blocks (e.g. 1..5, 6..10, 11..15, 1..25) ──
+    i = 0
+    while i < len(lines):
+        if lines[i].isdigit():
+            start_val = int(lines[i])
+            curr = start_val
+            idx = i
+            while idx < len(lines) and lines[idx].isdigit() and int(lines[idx]) == curr:
+                curr += 1
+                idx += 1
+            block_len = curr - start_val
+            if block_len >= 3:
+                ans_tokens = []
+                for l_idx in range(idx, len(lines)):
+                    token = lines[l_idx].strip()
+                    if token.upper() in ["MATHEMATICS", "PHYSICS", "CHEMISTRY", "BIOLOGY", "BOTANY", "ZOOLOGY", "SECTION", "PART", ""]:
+                        continue
+                    if any(h in token.upper() for h in ["REVIEW TEST", "GRADE", "DATE", "CODE", "SET -", "SET—", "ADVANCE TEST"]):
+                        continue
+                    m_val = re.match(r'^[\(\[]?([A-D0-9,\s\-–/.]+)[\)\]]?$', token)
+                    if m_val:
+                        ans_tokens.append(token.strip("()[]{}").strip())
+                    if len(ans_tokens) == block_len:
+                        break
+                
+                if len(ans_tokens) == block_len:
+                    for offset in range(block_len):
+                        q_num = start_val + offset
+                        if q_num not in keys:
+                            keys[q_num] = ans_tokens[offset]
+                    i = idx - 1
+        i += 1
+
+    # ── FORMAT 2: Token-based NEET & Multi-column Grid Parser ─────
     tokens = [t.strip() for t in combined_text.split() if t.strip()]
     i = 0
     while i < len(tokens):
@@ -477,15 +511,14 @@ def extract_clean_answer_keys(full_text: str, total_q: int, doc: Optional[pymupd
                     if 'Ans' in tokens[j]:
                         if j + 1 < len(tokens):
                             ans_val = tokens[j+1]
-                            m_a = re.match(r'^[\(\[]?([A-D0-9]{1,5})[\)\]]?$', ans_val)
-                            if m_a:
-                                keys[qn] = m_a.group(1)
+                            m_a = re.match(r'^[\(\[]?([A-D0-9,\s\-–/.]+)[\)\]]?$', ans_val)
+                            if m_a and qn not in keys:
+                                keys[qn] = ans_val.strip("()[]{}").strip()
                         break
                     j += 1
         i += 1
 
-    # ── FORMAT B: Q.No. ... Ans. Table Sections (IPMAT, Gr 12 RT-9) ──
-    lines = [l.strip() for l in combined_text.splitlines() if l.strip()]
+    # ── FORMAT 3: Q.No. ... Ans. Table Sections (IPMAT, Gr 12 RT-9) ──
     sections = []
     curr_type = None
     curr_items = []
@@ -513,48 +546,26 @@ def extract_clean_answer_keys(full_text: str, total_q: int, doc: Optional[pymupd
             a_raw = sections[idx+1][1]
             a_list = []
             for an in a_raw:
-                m_a = re.match(r'^[\(\[]?([A-D0-9]{1,5})[\)\]]?$', an)
+                m_a = re.match(r'^[\(\[]?([A-D0-9,\s\-–/.]+)[\)\]]?$', an)
                 if m_a:
-                    a_list.append(m_a.group(1))
+                    a_list.append(an.strip("()[]{}").strip())
             for qn, an in zip(q_list, a_list):
                 if qn not in keys:
                     keys[qn] = an
 
-    # ── FORMAT C: Sequential Column Blocks (RT-5 XI, RT-5 X, RT-8 SET-A/B) ──
-    i = 0
-    while i < len(lines):
-        if lines[i].isdigit():
-            start_val = int(lines[i])
-            if start_val in (1, 26, 51, 76, 101, 126, 151):
-                curr = start_val
-                idx = i
-                while idx < len(lines) and lines[idx].isdigit() and int(lines[idx]) == curr:
-                    curr += 1
-                    idx += 1
-                block_len = curr - start_val
-                if block_len >= 5:
-                    ans_tokens = []
-                    for l_idx in range(idx, len(lines)):
-                        token = lines[l_idx].strip()
-                        if token.upper() in ["MATHEMATICS", "PHYSICS", "CHEMISTRY", "BIOLOGY", "BOTANY", "ZOOLOGY", "SECTION", "PART", ""]:
-                            continue
-                        if any(h in token.upper() for h in ["REVIEW TEST", "GRADE", "DATE", "CODE", "SET -", "SET—"]):
-                            continue
-                        if token.isdigit() and int(token) == start_val + block_len:
-                            break
-                        m_val = re.match(r'^[\(\[]?([A-D0-9]{1,5})[\)\]]?$', token)
-                        if m_val:
-                            ans_tokens.append(m_val.group(1))
-                        if len(ans_tokens) == block_len:
-                            break
-                    
-                    if len(ans_tokens) == block_len:
-                        for offset in range(block_len):
-                            q_num = start_val + offset
-                            if q_num not in keys:
-                                keys[q_num] = ans_tokens[offset]
-                        i = idx - 1
-        i += 1
+    # ── FORMAT 4: In-line Question Solutions (Ans. C, Ans. ACD, Ans. (9), Ans. 210) ──
+    # Only use in-line solutions if answer key table was not present or question not in keys
+    if doc:
+        for page in doc:
+            pt = page.get_text()
+            if "ANSWER KEY" in pt.upper():
+                continue
+            for m in re.finditer(r'(?:^|\n)\s*(?:Q\.?\s*)?(\d{1,3})\s*[\.:\)]\s*.*?(?:Ans\.?|Answer:?)\s*[\(\[]?\s*([A-D0-9,\s\-–/.]{1,15})\s*[\)\]]?', pt, re.DOTALL | re.IGNORECASE):
+                qn = int(m.group(1))
+                val = m.group(2).strip()
+                val = re.sub(r'\s*(?:Sol\.?|Solution|Let).*$', '', val, flags=re.IGNORECASE).strip()
+                if qn not in keys and val and len(val) <= 10 and not val.endswith('.'):
+                    keys[qn] = val.strip("()[]{}").strip()
 
     return keys
 
@@ -839,6 +850,17 @@ def create_master_excel_bytes(analysis_data: Dict[str, Any]) -> bytes:
 # =====================================================================
 # DYNAMIC PDF ANALYSIS ENGINE (PATTERN-AGNOSTIC)
 # =====================================================================
+
+def normalize_answer_key(ans_str: str) -> str:
+    if not ans_str:
+        return ""
+    s = str(ans_str).upper().strip().replace(" ", "").replace(",", "")
+    num_map = {'1': 'A', '2': 'B', '3': 'C', '4': 'D'}
+    if all(c in '1234' for c in s) and len(s) > 0 and len(s) <= 4 and not (len(s) > 1 and s.isdigit() and int(s) > 4):
+        # Could be multi-correct like "1,2" -> "AB"
+        if len(s) > 1 and all(c in '1234' for c in s):
+            s = "".join([num_map[c] for c in s])
+    return "".join(sorted(list(s)))
 
 def solve_question_dynamically(q_text: str, q_no: int, subject: str) -> tuple:
     """
