@@ -1499,23 +1499,27 @@ async def get_session_status(session_id: str):
 
 @app.get("/api/preview/{session_id}")
 async def get_session_preview(session_id: str):
-    if session_id not in ACTIVE_SESSIONS:
-        raise HTTPException(status_code=404, detail="Session not found")
-    sess = ACTIVE_SESSIONS[session_id]
-    if sess.get("status") != "completed":
-        raise HTTPException(status_code=400, detail="Analysis is still in progress")
-    return sess.get("analysis_data", {})
+    if session_id in ACTIVE_SESSIONS and "analysis_data" in ACTIVE_SESSIONS[session_id]:
+        return ACTIVE_SESSIONS[session_id]["analysis_data"]
+    if session_id in ANALYSIS_JOBS and "data" in ANALYSIS_JOBS[session_id]:
+        return ANALYSIS_JOBS[session_id]["data"]
+    if session_id in SESSIONS_CACHE:
+        return SESSIONS_CACHE[session_id]
+    raise HTTPException(status_code=404, detail="Analysis preview session not found.")
 
 @app.get("/api/download/{session_id}")
 async def download_session_excel(session_id: str):
-    if session_id not in ACTIVE_SESSIONS:
-        raise HTTPException(status_code=404, detail="Session not found")
-    sess = ACTIVE_SESSIONS[session_id]
-    excel_path = sess.get("excel_path")
-    if not excel_path or not os.path.exists(excel_path):
-        raise HTTPException(status_code=404, detail="Excel file not found")
+    excel_path = os.path.join(SESSIONS_DIR, f"{session_id}.xlsx")
+    if not os.path.exists(excel_path):
+        sess = ACTIVE_SESSIONS.get(session_id, {})
+        excel_path = sess.get("excel_path", "")
+    if not os.path.exists(excel_path):
+        raise HTTPException(status_code=404, detail="Excel file not found.")
         
-    excel_filename = sess.get("excel_filename", "Exam_Analysis.xlsx")
+    excel_filename = "Exam_Blueprint_Master.xlsx"
+    if session_id in ACTIVE_SESSIONS:
+        excel_filename = ACTIVE_SESSIONS[session_id].get("excel_filename", excel_filename)
+        
     with open(excel_path, "rb") as f:
         content = f.read()
         
@@ -1566,6 +1570,15 @@ async def run_deep_analysis_worker(session_id: str, pdf_bytes: bytes, filename: 
         with open(out_path, "wb") as f:
             f.write(xlsx_bytes)
             
+        clean_base = filename.replace(".pdf", "").replace("—", "-").strip()
+        ACTIVE_SESSIONS[session_id] = {
+            "status": "completed",
+            "progress": 100,
+            "filename": filename,
+            "analysis_data": analysis_data,
+            "excel_path": out_path,
+            "excel_filename": f"{clean_base}_Blueprint.xlsx"
+        }
         SESSIONS_CACHE[session_id] = analysis_data
         
         ANALYSIS_JOBS[session_id] = {
