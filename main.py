@@ -1241,60 +1241,33 @@ async def analyze_pdf_document(pdf_bytes: bytes, filename: str, api_key: Optiona
         full_text += f"\n=== PAGE {idx+1} ===\n" + t
 
     def detect_subject_in_line(line: str) -> Tuple[Optional[str], Optional[str]]:
-        l_upper = line.strip().upper()
-        l_stripped = line.strip()
-        is_header_line = len(l_stripped) < 80
-
-        if re.search(r'\bRT[\s\-–]+\d+\s+VA\b', l_upper) or re.search(r'^VA\s*[\(\-–]', l_upper) or l_upper.strip() == 'VA':
-            return 'Verbal Ability', 'Reading Comprehension'
-        if re.search(r'\bRT[\s\-–]+\d+\s+QA\b', l_upper) or re.search(r'^QA\s*[\(\-–]', l_upper) or l_upper.strip() == 'QA':
-            return 'Quantitative Aptitude', 'Arithmetic'
-        if re.search(r'\bRT[\s\-–]+\d+\s+LR\b', l_upper) or re.search(r'^LR\s*[\(\-–]', l_upper) or l_upper.strip() == 'LR':
-            return 'Logical Reasoning', 'Analytical Reasoning'
-        if re.search(r'\bRT[\s\-–]+\d+\s+DI\b', l_upper) or re.search(r'^DI\s*[\(\-–]', l_upper) or l_upper.strip() == 'DI':
-            return 'Data Interpretation', 'Data Interpretation'
+        l_raw = line.strip()
+        l_upper = l_raw.upper().strip("()[]{} -–:.\t")
+        is_header_line = len(l_raw) < 90
 
         if not is_header_line:
             return None, None
 
-        # Guard: Ignore lines that are body sentences, table columns, directions or questions
-        if re.search(r'(study|students|marks|score|faculty|department|obtained|percentage|direction|table|below|following|graph|chart|which|what|calculate|find|if)', l_upper.lower()):
-            return None, None
-            
-        # Subject section headers are standalone titles (<= 5 words)
-        words_in_line = len(l_stripped.split())
-        if words_in_line > 5 and not re.search(r'(SECTION|PART)\s*[-–:]', l_upper):
-            return None, None
-
-        if re.search(r'\b(VERBAL\s*ABILITY|READING\s*COMPREHENSION)\b', l_upper):
+        if re.search(r'\b(MATHEMATICS|MATHS)\b', l_upper) and not re.search(r'(STUDY|CALCULATE|WHICH|FOLLOWING|OBTAINED)', l_upper):
+            return 'Mathematics', 'Mathematics'
+        if re.search(r'\bPHYSICS\b', l_upper) and not re.search(r'(STUDY|CALCULATE|WHICH|FOLLOWING|OBTAINED)', l_upper):
+            return 'Physics', 'Physics'
+        if re.search(r'\bCHEMISTRY\b', l_upper) and not re.search(r'(STUDY|CALCULATE|WHICH|FOLLOWING|OBTAINED)', l_upper):
+            return 'Chemistry', 'PC'
+        if re.search(r'\b(BOTANY|PLANT)\b', l_upper):
+            return 'Biology', 'Botany'
+        if re.search(r'\b(ZOOLOGY|ANIMAL)\b', l_upper):
+            return 'Biology', 'Zoology'
+        if re.search(r'\bBIOLOGY\b', l_upper):
+            return 'Biology', 'Botany'
+        if re.search(r'\b(VERBAL\s*ABILITY|READING\s*COMPREHENSION|ENGLISH)\b', l_upper):
             return 'Verbal Ability', 'Reading Comprehension'
-        if re.search(r'\b(LOGICAL\s*REASONING)\b', l_upper):
-            return 'Logical Reasoning', 'Analytical Reasoning'
         if re.search(r'\b(QUANTITATIVE\s*APTITUDE|QUANT\s*APTITUDE)\b', l_upper):
             return 'Quantitative Aptitude', 'Arithmetic'
+        if re.search(r'\b(LOGICAL\s*REASONING|ANALYTICAL\s*REASONING)\b', l_upper):
+            return 'Logical Reasoning', 'Analytical Reasoning'
         if re.search(r'\b(DATA\s*INTERPRETATION)\b', l_upper):
             return 'Data Interpretation', 'Data Interpretation'
-        if re.search(r'\b(GENERAL\s*KNOWLEDGE|GENERAL\s*AWARENESS)\b', l_upper):
-            return 'General Knowledge', 'Static GK & Geography'
-        if l_upper in ['GK', 'GA']:
-            return 'General Knowledge', 'Static GK & Geography'
-
-        # Standalone STEM subject names (PHYSICS, CHEMISTRY, MATHEMATICS, BIOLOGY, BOTANY, ZOOLOGY)
-        # Must be uppercase header or with Section/Part prefix, not table entries
-        is_exact_subj_header = l_upper in ['PHYSICS', 'CHEMISTRY', 'MATHEMATICS', 'MATHS', 'BIOLOGY', 'BOTANY', 'ZOOLOGY'] or re.search(r'(SECTION|PART)\s*[-–:]?\s*(PHYSICS|CHEMISTRY|MATHEMATICS|MATHS|BIOLOGY|BOTANY|ZOOLOGY)', l_upper)
-        if is_exact_subj_header and (l_stripped.isupper() or 'SECTION' in l_upper or 'PART' in l_upper):
-            if re.search(r'\b(MATHEMATICS|MATHS)\b', l_upper):
-                return 'Mathematics', 'Mathematics'
-            if re.search(r'\bPHYSICS\b', l_upper):
-                return 'Physics', 'Physics'
-            if re.search(r'\bCHEMISTRY\b', l_upper):
-                return 'Chemistry', 'PC'
-            if re.search(r'\bBOTANY\b', l_upper):
-                return 'Biology', 'Botany'
-            if re.search(r'\bZOOLOGY\b', l_upper):
-                return 'Biology', 'Zoology'
-            if re.search(r'\bBIOLOGY\b', l_upper):
-                return 'Biology', 'Botany'
 
         return None, None
 
@@ -1399,8 +1372,11 @@ async def analyze_pdf_document(pdf_bytes: bytes, filename: str, api_key: Optiona
         subj = eq["subject"]
         sub_sub = eq["sub_subject"]
 
-        if subj == "General":
-            subj, sub_sub = detect_subject_from_text(q_text)
+        if subj == "General" or not subj:
+            kw_subj, kw_sub_sub = detect_subject_from_text(q_text)
+            if kw_subj and kw_subj != "General":
+                subj = kw_subj
+                sub_sub = kw_sub_sub
 
         final_sub_sub, ch_name, top_name = classify_question_taxonomy(q_text, subj, sub_sub)
 
