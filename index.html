@@ -313,7 +313,7 @@
 
     async function loadSamplePapers() {
       try {
-        const res = await fetch("/api/sample-papers");
+        const res = await fetch("/api/sample-papers?_t=" + Date.now(), { cache: "no-store" });
         const data = await res.json();
         const select = document.getElementById("sample-paper-select");
         (data.sample_papers || []).forEach(paper => {
@@ -391,7 +391,7 @@
         progPct.textContent = "50%";
         progLabel.textContent = "AI Solver & Deep Error Auditor executing...";
 
-        const res = await fetch("/api/analyze", {
+        const res = await fetch("/api/analyze?_t=" + Date.now(), {
           method: "POST",
           body: formData
         });
@@ -408,7 +408,7 @@
         progPct.textContent = "90%";
         progLabel.textContent = "Compiling 4-Sheet Master Excel Workbook...";
 
-        const previewRes = await fetch(`/api/preview/${currentSessionId}`);
+        const previewRes = await fetch(`/api/preview/${currentSessionId}?_t=${Date.now()}`, { cache: "no-store" });
         currentAnalysisData = await previewRes.json();
 
         progBar.style.width = "100%";
@@ -652,7 +652,7 @@
 
     function downloadCurrentExcel() {
       if (!currentSessionId) return;
-      window.location.href = `/api/download/${currentSessionId}`;
+      window.location.href = `/api/download/${currentSessionId}?_t=${Date.now()}`;
     }
   </script>
 </body>
