@@ -157,29 +157,94 @@ NCERT_TAXONOMY = {
 }
 
 def detect_subject_from_text(text: str) -> Tuple[str, str]:
+    """
+    INDEPENDENT FIRST-PRINCIPLES QUESTION CONTENT CLASSIFIER:
+    Evaluates every question's subject strictly from the question's text,
+    scientific terms, formulas, reactions, and concepts — zero heading dependency.
+    """
     t_low = text.lower()
-    va_score = sum(1 for w in ["passage", "author", "infer", "antonym", "synonym", "idiom", "phrase", "underlined", "sentence", "grammatically", "spelling", "adjective", "adverb", "preposition", "voice", "reported speech", "paragraph", "paraphrase"] if w in t_low)
-    qa_score = sum(1 for w in ["cost price", "selling price", "profit", "interest", "compound interest", "ratio", "mixture", "alligation", "speed", "distance", "train", "upstream", "downstream", "hcf", "lcm", "divisible", "remainder", "remainder theorem", "unit digit", "factors", "quadratic", "roots", "logarithm", "mensuration", "cylinder", "cone", "sphere", "angle bisector"] if w in t_low)
-    lr_score = sum(1 for w in ["facing south", "facing north", "direction", "seating", "seated", "circular table", "row of", "shifted", "clock", "calendar", "day of the week", "cube", "dice", "analogy", "series", "coding", "code language", "blood relation", "brother", "sister"] if w in t_low)
-    di_score = sum(1 for w in ["bar chart", "table chart", "pie chart", "line graph", "data given", "viewers", "positive tested", "theatre", "cases in"] if w in t_low)
-    math_score = sum(1 for w in ["dx", "dy/dx", "integral", "matrix", "determinant", "vector", "polynomial", "triangle", "sin theta", "cos theta", "tan theta", "slope", "circle", "parabola", "ellipse", "hyperbola", "roots", "discriminant", "a.p.", "g.p."] if w in t_low)
-    phys_score = sum(1 for w in ["velocity", "acceleration", "force", "friction", "newton", "tension", "pulley", "wedge", "work", "kinetic energy", "potential energy", "current", "resistor", "ohm", "capacitor", "capacitance", "electric field", "charge", "coulomb", "magnetic field", "dipole", "flux", "wavelength", "frequency", "speed of light", "refraction", "mirror", "lens", "diode", "semiconductor"] if w in t_low)
-    chem_score = sum(1 for w in ["reaction", "reagent", "molar", "mole", "acid", "base", "ph ", "equilibrium", "oxidation", "reduction", "redox", "kmno4", "hybridization", "iupac", "alkane", "alkene", "alkyne", "alcohol", "phenol", "aldehyde", "ketone", "carboxylic", "amine", "orbital", "bohr", "gas", "pressure", "catalyst", "isomer"] if w in t_low)
-    bio_score = sum(1 for w in ["cell", "chromosome", "dna", "rna", "enzyme", "mitosis", "meiosis", "plant", "flower", "leaf", "root", "algae", "fungi", "chloroplast", "mitochondria", "photosynthesis", "respiration", "hormone", "animal", "tissue", "blood", "heart", "nephron", "kidney", "brain", "neuron", "species", "ecosystem", "population"] if w in t_low)
+    
+    scores = {
+        "Physics": 0,
+        "Chemistry": 0,
+        "Mathematics": 0,
+        "Biology": 0,
+        "Quantitative Aptitude": 0,
+        "Logical Reasoning": 0,
+        "Verbal Ability": 0,
+        "Data Interpretation": 0
+    }
 
-    scores = [
-        ("Verbal Ability", "Reading Comprehension", va_score),
-        ("Quantitative Aptitude", "Arithmetic", qa_score),
-        ("Logical Reasoning", "Analytical Reasoning", lr_score),
-        ("Data Interpretation", "Data Interpretation", di_score),
-        ("Mathematics", "Mathematics", math_score),
-        ("Physics", "Physics", phys_score),
-        ("Chemistry", "PC", chem_score),
-        ("Biology", "Botany", bio_score)
+    # 1. Physics Features
+    phys_patterns = [
+        r'\b(?:charge|charges|point charge|electric field|potential difference|conductor|conductivity|resistance|resistor|capacit|current|voltage|emf)\b',
+        r'\b(?:magnetic field|lorentz|solenoid|faraday|lenz|induct|lcr|circuit|mesh|kirchhoff|impedance|galvanometer|ammeter|voltmeter)\b',
+        r'\b(?:velocity|acceleration|projectile|trajectory|friction|pulley|tension|spring constant|shm|oscillation|torque|moment of inertia|angular)\b',
+        r'\b(?:gravitation|kepler|viscosity|surface tension|bernoulli|young\'s modulus|stress|strain|heat engine|carnot|thermodynamic work|black body)\b',
+        r'\b(?:ray|lens|mirror|prism|refraction|refractive index|diffraction|interference|doppler|sound wave|organ pipe|string wave)\b',
+        r'\b(?:photoelectric|work function|de broglie|radioactivity|half life|decay|p-n junction|diode|logic gate|vernier|screw gauge)\b'
     ]
-    scores.sort(key=lambda x: x[2], reverse=True)
-    if scores[0][2] > 0:
-        return scores[0][0], scores[0][1]
+    for p in phys_patterns:
+        scores["Physics"] += len(re.findall(p, t_low)) * 3
+
+    # 2. Chemistry Features
+    chem_patterns = [
+        r'\b(?:kmno4|k2cr2o7|naoh|hcl|h2so4|c2h5oh|ch3oh|ch3|cooh|nh3|amine|amines|alkane|alkene|alkyne|alcohol|phenol|ether|aldehyde|ketone|ester)\b',
+        r'\b(?:reaction|reactions|iupac|mole|molar|moles|stoichiom|equilibrium|le chatelier|ph of|buffer|solubility product|ksp|nernst|galvanic)\b',
+        r'\b(?:oxidation state|oxidation number|coordination|ligand|chelating|bridging|crystal field|cfse|hybridization|hybridisation|orbital|aufbau)\b',
+        r'\b(?:carbocation|nucleophile|electrophile|sn1|sn2|grignard|aldol|cannizzaro|diazotization|polymer|biomolecule|enthalpy of formation|allotropic)\b',
+        r'\b(?:decolourized|titration|precipitate|functional group|isomers|stereoisomer|enantiomer|c atoms|carbon atoms)\b'
+    ]
+    for p in chem_patterns:
+        scores["Chemistry"] += len(re.findall(p, t_low)) * 3
+
+    # 3. Mathematics Features
+    math_patterns = [
+        r'\b(?:roots of|quadratic|discriminant|complex number|argand|modulus|polynomial|degree|arithmetic progression|ap series)\b',
+        r'\b(?:geometric progression|gp series|harmonic progression|permutation|combination|npr|ncr|binomial|matrices|matrix|determinant|cramer)\b',
+        r'\b(?:sin|cos|tan|cot|sec|cosec|trigonometr|parabola|ellipse|hyperbola|eccentricity|tangent to|normal to|chord|straight line|slope)\b',
+        r'\b(?:limit|limits|differentiable|differentiation|derivative|dy/dx|integral|integration|definite integral|area bounded|differential equation)\b',
+        r'\b(?:probability|bayes|variance|standard deviation|sequence of sets|integer satisfying|real roots)\b'
+    ]
+    for p in math_patterns:
+        scores["Mathematics"] += len(re.findall(p, t_low)) * 3
+
+    # 4. Biology Features
+    bio_patterns = [
+        r'\b(?:cell|chromosome|gene|dna|rna|photosynthesis|respiration|ecosystem|species|phylum|nephron|neuron|hormone|mitosis|meiosis)\b',
+        r'\b(?:enzyme|digestive|kidney|heart|antibody|antigen|algae|bryophyte|angiosperm|xylem|phloem|mendel|transcription|translation|pcr)\b'
+    ]
+    for p in bio_patterns:
+        scores["Biology"] += len(re.findall(p, t_low)) * 3
+
+    # 5. Aptitude Features
+    qa_patterns = [
+        r'\b(?:cost price|selling price|profit|loss|discount|simple interest|compound interest|pipes and cistern|time and work|upstream|downstream)\b',
+        r'\b(?:train crosses|mixture and alligation|ratio of boys|average age|clock angle|calendar|speed of boat)\b'
+    ]
+    for p in qa_patterns:
+        scores["Quantitative Aptitude"] += len(re.findall(p, t_low)) * 3
+
+    # 6. Verbal & Logical
+    if any(k in t_low for k in ["synonym", "antonym", "idiom", "passage", "grammatically", "spelling", "para jumble"]):
+        scores["Verbal Ability"] += 4
+    if any(k in t_low for k in ["blood relation", "seating arrangement", "syllogism", "statement and conclusion", "direction sense"]):
+        scores["Logical Reasoning"] += 4
+    if any(k in t_low for k in ["table chart", "bar graph", "pie chart", "theatres inox", "percent distribution"]):
+        scores["Data Interpretation"] += 4
+
+    best_subj = max(scores, key=scores.get)
+    if scores[best_subj] > 0:
+        sub_sub = best_subj
+        if best_subj == "Mathematics": sub_sub = "Mathematics"
+        elif best_subj == "Physics": sub_sub = "Physics"
+        elif best_subj == "Chemistry": sub_sub = "PC"
+        elif best_subj == "Biology": sub_sub = "Botany"
+        return best_subj, sub_sub
+
+    if any(c in t_low for c in ["+", "=", "^", "∫", "dx", "dy", "√", "≤", "≥", "lim", "sn", "f(x)"]):
+        return "Mathematics", "Mathematics"
+
     return "General", "General"
 
 def classify_question_taxonomy(q_text: str, detected_subject: str, detected_sub_subject: str) -> Tuple[str, str, str]:
@@ -1372,11 +1437,14 @@ async def analyze_pdf_document(pdf_bytes: bytes, filename: str, api_key: Optiona
         subj = eq["subject"]
         sub_sub = eq["sub_subject"]
 
-        if subj == "General" or not subj:
-            kw_subj, kw_sub_sub = detect_subject_from_text(q_text)
-            if kw_subj and kw_subj != "General":
-                subj = kw_subj
-                sub_sub = kw_sub_sub
+        # 1. Primary Classification from Question Content (Zero heading dependency)
+        content_subj, content_sub_sub = detect_subject_from_text(q_text)
+        if content_subj and content_subj != "General":
+            subj = content_subj
+            sub_sub = content_sub_sub
+        elif not subj or subj == "General":
+            subj = "General"
+            sub_sub = "General"
 
         final_sub_sub, ch_name, top_name = classify_question_taxonomy(q_text, subj, sub_sub)
 
