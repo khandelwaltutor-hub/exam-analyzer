@@ -415,7 +415,15 @@ def classify_question_taxonomy(q_text: str, detected_subject: str, detected_sub_
 
         return "Mathematics", "Number Systems & Basic Algebra", "Quadratic Equations"
 
-    # ── 8. STEM: BIOLOGY ──────────────────────────────────────────
+    # ── 8. GENERAL KNOWLEDGE ──────────────────────────────────────
+    elif detected_subject == "General Knowledge":
+        if any(w in q_low for w in ["district", "reorganization", "division", "cabinet", "minister", "chief", "balotra", "udaipur"]):
+            return "Current Affairs & Polity", "Current Affairs & Polity", "Rajasthan District Reorganization" if "district" in q_low else "Administrative Divisions of Rajasthan"
+        if any(w in q_low for w in ["sanctuary", "chittorgarh", "shergarh", "gogelav", "dholpur", "tiger reserve", "leopard", "wild ass", "conservation reserve"]):
+            return "Static GK & Geography", "Geography & Environment", "Wildlife Sanctuaries of Rajasthan" if "sanctuary" in q_low else ("Tiger Reserves of Rajasthan" if "tiger" in q_low else "Conservation Reserves of Rajasthan")
+        return "Static GK & Geography", "Geography & Environment", "General Geography & Environment"
+
+    # ── 9. STEM: BIOLOGY ──────────────────────────────────────────
     elif detected_subject == "Biology":
         if any(w in q_low for w in ["animal", "phylum", "nephron", "heart", "blood", "circulation", "neuron", "brain", "hormone", "digestion", "reproduction", "embryo", "evolution", "immunity", "disease", "biotechnology"]):
             return "Zoology", "Human Physiology", "Human Physiology"
@@ -775,6 +783,15 @@ async def analyze_pdf_document(pdf_bytes: bytes, filename: str, api_key: Optiona
         if not is_header_line:
             return None, None
 
+        # Guard: Ignore lines that are body sentences, table columns, directions or questions
+        if re.search(r'(study|students|marks|score|faculty|department|obtained|percentage|direction|table|below|following|graph|chart|which|what|calculate|find|if)', l_upper.lower()):
+            return None, None
+            
+        # Subject section headers are standalone titles (<= 5 words)
+        words_in_line = len(l_stripped.split())
+        if words_in_line > 5 and not re.search(r'(SECTION|PART)\s*[-–:]', l_upper):
+            return None, None
+
         if re.search(r'\b(VERBAL\s*ABILITY|READING\s*COMPREHENSION)\b', l_upper):
             return 'Verbal Ability', 'Reading Comprehension'
         if re.search(r'\b(LOGICAL\s*REASONING)\b', l_upper):
@@ -783,18 +800,28 @@ async def analyze_pdf_document(pdf_bytes: bytes, filename: str, api_key: Optiona
             return 'Quantitative Aptitude', 'Arithmetic'
         if re.search(r'\b(DATA\s*INTERPRETATION)\b', l_upper):
             return 'Data Interpretation', 'Data Interpretation'
-        if re.search(r'\b(MATHEMATICS|MATHS)\b', l_upper) and not re.search(r'(study|students|faculty|department)', l_upper.lower()):
-            return 'Mathematics', 'Mathematics'
-        if re.search(r'\bPHYSICS\b', l_upper) and not re.search(r'(study|students|faculty|department)', l_upper.lower()):
-            return 'Physics', 'Physics'
-        if re.search(r'\bCHEMISTRY\b', l_upper) and not re.search(r'(study|students|faculty|department)', l_upper.lower()):
-            return 'Chemistry', 'PC'
-        if re.search(r'\bBOTANY\b', l_upper):
-            return 'Biology', 'Botany'
-        if re.search(r'\bZOOLOGY\b', l_upper):
-            return 'Biology', 'Zoology'
-        if re.search(r'\bBIOLOGY\b', l_upper):
-            return 'Biology', 'Botany'
+        if re.search(r'\b(GENERAL\s*KNOWLEDGE|GENERAL\s*AWARENESS)\b', l_upper):
+            return 'General Knowledge', 'Static GK & Geography'
+        if l_upper in ['GK', 'GA']:
+            return 'General Knowledge', 'Static GK & Geography'
+
+        # Standalone STEM subject names (PHYSICS, CHEMISTRY, MATHEMATICS, BIOLOGY, BOTANY, ZOOLOGY)
+        # Must be uppercase header or with Section/Part prefix, not table entries
+        is_exact_subj_header = l_upper in ['PHYSICS', 'CHEMISTRY', 'MATHEMATICS', 'MATHS', 'BIOLOGY', 'BOTANY', 'ZOOLOGY'] or re.search(r'(SECTION|PART)\s*[-–:]?\s*(PHYSICS|CHEMISTRY|MATHEMATICS|MATHS|BIOLOGY|BOTANY|ZOOLOGY)', l_upper)
+        if is_exact_subj_header and (l_stripped.isupper() or 'SECTION' in l_upper or 'PART' in l_upper):
+            if re.search(r'\b(MATHEMATICS|MATHS)\b', l_upper):
+                return 'Mathematics', 'Mathematics'
+            if re.search(r'\bPHYSICS\b', l_upper):
+                return 'Physics', 'Physics'
+            if re.search(r'\bCHEMISTRY\b', l_upper):
+                return 'Chemistry', 'PC'
+            if re.search(r'\bBOTANY\b', l_upper):
+                return 'Biology', 'Botany'
+            if re.search(r'\bZOOLOGY\b', l_upper):
+                return 'Biology', 'Zoology'
+            if re.search(r'\bBIOLOGY\b', l_upper):
+                return 'Biology', 'Botany'
+
         return None, None
 
     exam_pages = []
