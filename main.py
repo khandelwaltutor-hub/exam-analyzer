@@ -776,25 +776,50 @@ def analyze_pdf_document(pdf_bytes: bytes, filename: str, api_key: Optional[str]
 
     def detect_subject_in_line(line: str) -> Tuple[Optional[str], Optional[str]]:
         l_upper = line.strip().upper()
-        if re.search(r'\b(MATHEMATICS|MATHS)\b', l_upper) and not re.search(r'(faculty|teacher|department)', l_upper.lower()):
-            return 'Mathematics', 'Mathematics'
-        elif re.search(r'\bPHYSICS\b', l_upper) and not re.search(r'(faculty|teacher|department)', l_upper.lower()):
-            return 'Physics', 'Physics'
-        elif re.search(r'\bCHEMISTRY\b', l_upper) and not re.search(r'(faculty|teacher|department)', l_upper.lower()):
-            return 'Chemistry', 'PC'
-        elif re.search(r'\bBOTANY\b', l_upper):
-            return 'Biology', 'Botany'
-        elif re.search(r'\bZOOLOGY\b', l_upper):
-            return 'Biology', 'Zoology'
-        elif re.search(r'\bBIOLOGY\b', l_upper):
-            return 'Biology', 'Botany'
-        elif re.search(r'\b(VERBAL\s*ABILITY|READING\s*COMPREHENSION|ENGLISH)\b', l_upper):
+        l_stripped = line.strip()
+
+        # === GUARD: Only switch subject on SHORT header-style lines (< 80 chars) ===
+        # Long lines are question text — they may mention other subjects incidentally
+        # e.g. "65 study Mathematics, 45 study Physics" should NOT switch subject
+        is_header_line = len(l_stripped) < 80
+
+        # --- Priority 1: Exam paper section header abbreviations (e.g. "Gr. XII RT-09 VA") ---
+        # These fire regardless of line length since they are very specific
+        if re.search(r'\bRT[\s\-–]+\d+\s+VA\b', l_upper) or re.search(r'^VA\s*[\(\-–]', l_upper) or l_upper.strip() == 'VA':
             return 'Verbal Ability', 'Reading & Grammar'
-        elif re.search(r'\b(LOGICAL\s*REASONING|REASONING)\b', l_upper):
+        if re.search(r'\bRT[\s\-–]+\d+\s+QA\b', l_upper) or re.search(r'^QA\s*[\(\-–]', l_upper) or l_upper.strip() == 'QA':
+            return 'Quantitative Aptitude', 'Quantitative Aptitude'
+        if re.search(r'\bRT[\s\-–]+\d+\s+LR\b', l_upper) or re.search(r'^LR\s*[\(\-–]', l_upper) or l_upper.strip() == 'LR':
             return 'Logical Reasoning', 'Logical Reasoning'
-        elif re.search(r'\b(QUANTITATIVE\s*APTITUDE|MATHS\s*APTITUDE)\b', l_upper):
-            return 'Quantitative Aptitude', 'PC'
+        if re.search(r'\bRT[\s\-–]+\d+\s+DI\b', l_upper) or re.search(r'^DI\s*[\(\-–]', l_upper) or l_upper.strip() == 'DI':
+            return 'Data Interpretation', 'Data Interpretation'
+
+        # --- Priority 2: Full subject names — only on header-style short lines ---
+        if not is_header_line:
+            return None, None  # Long question body text — don't switch subject
+
+        if re.search(r'\b(VERBAL\s*ABILITY|READING\s*COMPREHENSION)\b', l_upper):
+            return 'Verbal Ability', 'Reading & Grammar'
+        if re.search(r'\b(LOGICAL\s*REASONING)\b', l_upper):
+            return 'Logical Reasoning', 'Logical Reasoning'
+        if re.search(r'\b(QUANTITATIVE\s*APTITUDE|QUANT\s*APTITUDE)\b', l_upper):
+            return 'Quantitative Aptitude', 'Quantitative Aptitude'
+        if re.search(r'\b(DATA\s*INTERPRETATION)\b', l_upper):
+            return 'Data Interpretation', 'Data Interpretation'
+        if re.search(r'\b(MATHEMATICS|MATHS)\b', l_upper) and not re.search(r'(faculty|teacher|department|study|students)', l_upper.lower()):
+            return 'Mathematics', 'Mathematics'
+        if re.search(r'\bPHYSICS\b', l_upper) and not re.search(r'(faculty|teacher|department|study|students)', l_upper.lower()):
+            return 'Physics', 'Physics'
+        if re.search(r'\bCHEMISTRY\b', l_upper) and not re.search(r'(faculty|teacher|department|study|students)', l_upper.lower()):
+            return 'Chemistry', 'PC'
+        if re.search(r'\bBOTANY\b', l_upper):
+            return 'Biology', 'Botany'
+        if re.search(r'\bZOOLOGY\b', l_upper):
+            return 'Biology', 'Zoology'
+        if re.search(r'\bBIOLOGY\b', l_upper):
+            return 'Biology', 'Botany'
         return None, None
+
 
     # Separate exam pages from answer key page(s)
     exam_pages = []
@@ -804,13 +829,36 @@ def analyze_pdf_document(pdf_bytes: bytes, filename: str, api_key: Optional[str]
         else:
             exam_pages.append(pt)
 
-    current_subject = "Physics"
-    current_sub_subject = "Physics"
+    # Auto-detect starting subject from first page header (don't assume Physics)
+    current_subject = "General"
+    current_sub_subject = "General"
+    if exam_pages:
+        for first_line in exam_pages[0].splitlines()[:10]:
+            s, ss = detect_subject_in_line(first_line)
+            if s:
+                current_subject = s
+                current_sub_subject = ss
+                break
+    # Fallback: if still General, try to detect from first-page content keywords
+    if current_subject == "General":
+        first_pg = exam_pages[0].upper() if exam_pages else ""
+        if ' VA ' in first_pg or 'VERBAL' in first_pg:
+            current_subject, current_sub_subject = 'Verbal Ability', 'Reading & Grammar'
+        elif ' QA ' in first_pg or 'QUANTITATIVE' in first_pg:
+            current_subject, current_sub_subject = 'Quantitative Aptitude', 'Quantitative Aptitude'
+        elif 'MATHEMATICS' in first_pg or 'MATHS' in first_pg:
+            current_subject, current_sub_subject = 'Mathematics', 'Mathematics'
+        elif 'PHYSICS' in first_pg:
+            current_subject, current_sub_subject = 'Physics', 'Physics'
+        elif 'CHEMISTRY' in first_pg:
+            current_subject, current_sub_subject = 'Chemistry', 'PC'
+
     extracted_questions = []
     curr_q_num = None
+
     curr_q_text = []
-    curr_q_subj = "Physics"
-    curr_q_sub_subj = "Physics"
+    curr_q_subj = current_subject
+    curr_q_sub_subj = current_sub_subject
 
     for pt in exam_pages:
         for line in pt.splitlines():
