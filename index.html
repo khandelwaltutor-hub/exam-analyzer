@@ -388,22 +388,21 @@
 
       let progressInterval;
       try {
-        let currentPct = 50;
-        progBar.style.width = "50%";
-        progPct.textContent = "50%";
-        progLabel.textContent = "AI Solver & Deep Error Auditor executing...";
+        let currentPct = 25;
+        progBar.style.width = "25%";
+        progPct.textContent = "25%";
+        progLabel.textContent = "Extracting questions & running multi-level AI solver...";
 
-        // Dynamic progress timer to show active cloud work without freezing
         progressInterval = setInterval(() => {
-          if (currentPct < 85) {
-            currentPct += 5;
+          if (currentPct < 92) {
+            currentPct += 4;
             progBar.style.width = `${currentPct}%`;
             progPct.textContent = `${currentPct}%`;
-            if (currentPct > 65) {
-              progLabel.textContent = "Classifying taxonomies & reconciling answer keys...";
+            if (currentPct > 60) {
+              progLabel.textContent = "Executing 5-question micro-batches & consensus audit...";
             }
           }
-        }, 800);
+        }, 300);
 
         const res = await fetch("/api/analyze?_t=" + Date.now(), {
           method: "POST",
