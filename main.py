@@ -963,11 +963,74 @@ def analyze_pdf_document(pdf_bytes: bytes, filename: str, api_key: Optional[str]
         }
         questions.append(q_obj)
 
+    # ─── Comprehensive Error Detection ─────────────────────────────
+    errors = []
+
+    # 1. Blank / very short question text (image-only or rendering failure)
+    for eq in extracted_questions:
+        qno = eq.get("q_no", 0)
+        text = eq.get("text", "").strip()
+        word_count = len(text.split())
+        subj_label = questions[qno-1].get("subject", "?") if 0 < qno <= len(questions) else "?"
+        if word_count == 0:
+            errors.append((str(qno), subj_label, "Blank Question Text",
+                "Question text is completely blank - likely image/diagram-only. Cannot auto-analyze content."))
+        elif word_count < 4:
+            errors.append((str(qno), subj_label, "Very Short Question Text",
+                "Only " + str(word_count) + " word(s) extracted: '" + text[:60] + "' - may be incomplete due to diagram/image rendering."))
+
+    # 2. Missing answer key entries
+    for q in questions:
+        qno = q["q_no"]
+        orig_qno = extracted_questions[qno-1].get("q_no", qno) if qno <= len(extracted_questions) else qno
+        if keys.get(qno) is None and keys.get(orig_qno) is None:
+            errors.append((str(qno), q.get("subject","?"), "Missing Answer Key",
+                "Q" + str(qno) + " not found in answer key - defaulted to option 1. Verify the answer key section in PDF."))
+
+    # 3. Answer key value anomalies
+    for qno, ans in keys.items():
+        if qno > len(questions):
+            continue
+        ans_str = str(ans).strip()
+        subj_label = questions[qno-1].get("subject", "?") if qno <= len(questions) else "?"
+        if ans_str == "0":
+            errors.append((str(qno), subj_label, "Suspicious Answer: 0",
+                "Q" + str(qno) + " answer key shows 0 - unusual for MCQ. Verify answer key alignment."))
+        if ans_str in ("", "-", "?", "N/A"):
+            errors.append((str(qno), subj_label, "Blank Answer Key Entry",
+                "Q" + str(qno) + " answer key entry is blank or invalid (value: " + repr(ans_str) + ")."))
+        if ans_str.isdigit() and int(ans_str) > 4:
+            if "MCQ" in questions[qno-1].get("question_type", ""):
+                errors.append((str(qno), subj_label, "Answer Exceeds 4 Options",
+                    "Q" + str(qno) + " answer is " + ans_str + " but appears MCQ (max option 4). May be Integer type."))
+
+    # 4. Numbering gaps - questions skipped by parser
+    detected_nos = sorted(eq.get("q_no", 0) for eq in extracted_questions)
+    if detected_nos:
+        for i in range(detected_nos[0], detected_nos[-1] + 1):
+            if i not in detected_nos:
+                errors.append((str(i), "General", "Question Not Detected",
+                    "Q" + str(i) + " missing from extracted output - possible special chars, page break, or formula rendering issue."))
+
+    # 5. Suspicious uniform answer pattern (same answer for 5+ consecutive Qs)
+    ans_list = [str(keys.get(i, "")) for i in range(1, len(questions)+1)]
+    for start in range(len(ans_list) - 4):
+        window = ans_list[start:start+5]
+        if len(set(window)) == 1 and window[0] not in ("", "?"):
+            errors.append(("?", "General", "Suspicious Answer Pattern",
+                "Q" + str(start+1) + " to Q" + str(start+5) + " all have same answer '" + window[0] + "' - verify answer key alignment."))
+            break
+
+    # 6. No errors found - clean paper
+    if not errors:
+        errors.append(("—", "All Subjects", "No Errors Detected",
+            "All " + str(len(questions)) + " questions parsed cleanly. Answer key extracted. No anomalies found."))
+
     return {
         "exam_title": clean_base,
         "total_pages": total_pages,
         "questions": questions,
-        "errors": [("General", "Dynamic Count Verified", f"Scanned and verified {len(questions)} distinct questions across all subjects in the uploaded PDF.", "None")]
+        "errors": errors
     }
 
 # =====================================================================
