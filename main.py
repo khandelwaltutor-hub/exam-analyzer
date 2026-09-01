@@ -823,11 +823,21 @@ def analyze_pdf_document(pdf_bytes: bytes, filename: str, api_key: Optional[str]
                 current_subject = new_subj
                 current_sub_subject = new_sub_sub
 
-            # Question start pattern
+            # Question start pattern — require WORD BOUNDARY or line-start digit followed by . or )
+            # Must be a LONGER line (>10 chars typically) OR start with Q. prefix to avoid math fragments
             m_q = re.match(r'^(?:Q\.?\s*|Question\s*)?(\d{1,3})\s*[\.:\)\-]\s*(.*)$', line_s, re.IGNORECASE)
+            if not m_q:
+                m_q = re.match(r'^(\d{1,3})[\.\)]\s+(.{5,})$', line_s)  # digit.space + at least 5 chars of text
             if m_q and int(m_q.group(1)) <= 300:
                 q_val = int(m_q.group(1))
-                if curr_q_num is None or q_val == curr_q_num + 1 or (curr_q_num >= 5 and q_val == 1):
+                # FIXED: Only accept forward movement (q_val > curr_q_num) or first question
+                # Never reset backward — "1." in math expressions triggered false resets
+                is_valid_next = (
+                    curr_q_num is None and q_val >= 1  # first question
+                    or (curr_q_num is not None and q_val == curr_q_num + 1)  # strictly next
+                    or (curr_q_num is not None and q_val > curr_q_num and q_val <= curr_q_num + 5)  # small skip OK
+                )
+                if is_valid_next:
                     if curr_q_num is not None:
                         extracted_questions.append({
                             "q_no": curr_q_num,
