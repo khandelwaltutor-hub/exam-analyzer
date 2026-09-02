@@ -1285,6 +1285,81 @@ async def solve_questions_with_gemini(
 
     return questions
 
+def dynamic_sequential_block_segmentation(raw_subjects: List[str], min_block_size: int = 4) -> List[Tuple[str, int, int]]:
+    """
+    Partitions raw question subjects into strictly contiguous, homogeneous subject blocks.
+    Guarantees zero random interleaving.
+    """
+    n = len(raw_subjects)
+    if n == 0:
+        return []
+    if n < min_block_size:
+        counts = Counter(raw_subjects)
+        valid = {k: v for k, v in counts.items() if k != "General"}
+        dom = max(valid.items(), key=lambda x: x[1])[0] if valid else "Mathematics"
+        return [(dom, 1, n)]
+
+    def block_cost_and_subj(i, j):
+        sub_list = raw_subjects[i:j+1]
+        counts = Counter(sub_list)
+        valid_counts = {k: v for k, v in counts.items() if k != "General"}
+        if valid_counts:
+            best_subj, best_count = max(valid_counts.items(), key=lambda x: x[1])
+        else:
+            best_subj, best_count = "Mathematics", 0
+        mismatches = len(sub_list) - best_count
+        return mismatches, best_subj
+
+    best_overall_cost = float('inf')
+    best_partition_blocks = []
+
+    for num_blocks in range(1, 6):
+        penalty_weight = 4.0
+        if num_blocks == 1:
+            cost, subj = block_cost_and_subj(0, n - 1)
+            tot = cost + num_blocks * penalty_weight
+            if tot < best_overall_cost:
+                best_overall_cost = tot
+                best_partition_blocks = [(subj, 1, n)]
+        elif num_blocks == 2:
+            for p1 in range(min_block_size - 1, n - min_block_size):
+                c1, s1 = block_cost_and_subj(0, p1)
+                c2, s2 = block_cost_and_subj(p1 + 1, n - 1)
+                if s1 == s2:
+                    continue
+                tot = c1 + c2 + num_blocks * penalty_weight
+                if tot < best_overall_cost:
+                    best_overall_cost = tot
+                    best_partition_blocks = [(s1, 1, p1 + 1), (s2, p1 + 2, n)]
+        elif num_blocks == 3:
+            for p1 in range(min_block_size - 1, n - 2 * min_block_size):
+                c1, s1 = block_cost_and_subj(0, p1)
+                for p2 in range(p1 + min_block_size, n - min_block_size):
+                    c2, s2 = block_cost_and_subj(p1 + 1, p2)
+                    c3, s3 = block_cost_and_subj(p2 + 1, n - 1)
+                    if s1 == s2 or s2 == s3:
+                        continue
+                    tot = c1 + c2 + c3 + num_blocks * penalty_weight
+                    if tot < best_overall_cost:
+                        best_overall_cost = tot
+                        best_partition_blocks = [(s1, 1, p1 + 1), (s2, p1 + 2, p2 + 1), (s3, p2 + 2, n)]
+        elif num_blocks == 4:
+            for p1 in range(min_block_size - 1, n - 3 * min_block_size, 2):
+                c1, s1 = block_cost_and_subj(0, p1)
+                for p2 in range(p1 + min_block_size, n - 2 * min_block_size, 2):
+                    c2, s2 = block_cost_and_subj(p1 + 1, p2)
+                    for p3 in range(p2 + min_block_size, n - min_block_size, 2):
+                        c3, s3 = block_cost_and_subj(p2 + 1, p3)
+                        c4, s4 = block_cost_and_subj(p3 + 1, n - 1)
+                        if s1 == s2 or s2 == s3 or s3 == s4:
+                            continue
+                        tot = c1 + c2 + c3 + c4 + num_blocks * penalty_weight
+                        if tot < best_overall_cost:
+                            best_overall_cost = tot
+                            best_partition_blocks = [(s1, 1, p1 + 1), (s2, p1 + 2, p2 + 1), (s3, p2 + 2, p3 + 1), (s4, p3 + 2, n)]
+
+    return best_partition_blocks
+
 async def analyze_pdf_document(pdf_bytes: bytes, filename: str, api_key: Optional[str] = None, session_id: Optional[str] = None) -> Dict[str, Any]:
     doc = pymupdf.open(stream=pdf_bytes, filetype="pdf")
     total_pages = len(doc)
@@ -1307,26 +1382,29 @@ async def analyze_pdf_document(pdf_bytes: bytes, filename: str, api_key: Optiona
         if not is_header_line:
             return None, None
 
-        if re.search(r'\b(MATHEMATICS|MATHS)\b', l_upper) and not re.search(r'(STUDY|CALCULATE|WHICH|FOLLOWING|OBTAINED)', l_upper):
-            return 'Mathematics', 'Mathematics'
-        if re.search(r'\bPHYSICS\b', l_upper) and not re.search(r'(STUDY|CALCULATE|WHICH|FOLLOWING|OBTAINED)', l_upper):
-            return 'Physics', 'Physics'
-        if re.search(r'\bCHEMISTRY\b', l_upper) and not re.search(r'(STUDY|CALCULATE|WHICH|FOLLOWING|OBTAINED)', l_upper):
-            return 'Chemistry', 'PC'
-        if re.search(r'\b(BOTANY|PLANT)\b', l_upper):
-            return 'Biology', 'Botany'
-        if re.search(r'\b(ZOOLOGY|ANIMAL)\b', l_upper):
-            return 'Biology', 'Zoology'
-        if re.search(r'\bBIOLOGY\b', l_upper):
-            return 'Biology', 'Botany'
-        if re.search(r'\b(VERBAL\s*ABILITY|READING\s*COMPREHENSION|ENGLISH)\b', l_upper):
+        if re.search(r'\bRT[\s\-–]+\d+\s+VA\b', l_upper) or re.search(r'\b(?:VERBAL\s*ABILITY|READING\s*COMPREHENSION|ENGLISH)\b', l_upper) or l_upper == 'VA':
             return 'Verbal Ability', 'Reading Comprehension'
-        if re.search(r'\b(QUANTITATIVE\s*APTITUDE|QUANT\s*APTITUDE)\b', l_upper):
+        if re.search(r'\bRT[\s\-–]+\d+\s+QA\b', l_upper) or re.search(r'\b(?:QUANTITATIVE\s*APTITUDE|QUANT\s*APTITUDE)\b', l_upper) or l_upper == 'QA':
             return 'Quantitative Aptitude', 'Arithmetic'
-        if re.search(r'\b(LOGICAL\s*REASONING|ANALYTICAL\s*REASONING)\b', l_upper):
+        if re.search(r'\bRT[\s\-–]+\d+\s+LR\b', l_upper) or re.search(r'\b(?:LOGICAL\s*REASONING|ANALYTICAL\s*REASONING)\b', l_upper) or l_upper in ['LR', 'LOGICAL REASONING']:
             return 'Logical Reasoning', 'Analytical Reasoning'
-        if re.search(r'\b(DATA\s*INTERPRETATION)\b', l_upper):
+        if re.search(r'\bRT[\s\-–]+\d+\s+DI\b', l_upper) or re.search(r'\b(?:DATA\s*INTERPRETATION)\b', l_upper) or l_upper == 'DI':
             return 'Data Interpretation', 'Data Interpretation'
+        if re.search(r'\b(?:GENERAL\s*KNOWLEDGE|GENERAL\s*AWARENESS|CURRENT\s*AFFAIRS)\b', l_upper) or l_upper in ['GK', 'GA']:
+            return 'General Knowledge', 'General Awareness'
+
+        if re.search(r'\b(MATHEMATICS|MATHEMATCS|MATHS|MATH)\b', l_upper) and not re.search(r'(STUDY|CALCULATE|WHICH|FOLLOWING|OBTAINED|CONTAINS|CONSISTS)', l_upper):
+            return 'Mathematics', 'Mathematics'
+        if re.search(r'\bPHYSICS\b', l_upper) and not re.search(r'(STUDY|CALCULATE|WHICH|FOLLOWING|OBTAINED|CONTAINS|CONSISTS)', l_upper):
+            return 'Physics', 'Physics'
+        if re.search(r'\bCHEMISTRY\b', l_upper) and not re.search(r'(STUDY|CALCULATE|WHICH|FOLLOWING|OBTAINED|CONTAINS|CONSISTS)', l_upper):
+            return 'Chemistry', 'PC'
+        if re.search(r'\b(BOTANY|PLANT)\b', l_upper) and not re.search(r'(STUDY|CALCULATE|WHICH|FOLLOWING|OBTAINED|CONTAINS|CONSISTS)', l_upper):
+            return 'Biology', 'Botany'
+        if re.search(r'\b(ZOOLOGY|ANIMAL)\b', l_upper) and not re.search(r'(STUDY|CALCULATE|WHICH|FOLLOWING|OBTAINED|CONTAINS|CONSISTS)', l_upper):
+            return 'Biology', 'Zoology'
+        if re.search(r'\bBIOLOGY\b', l_upper) and not re.search(r'(STUDY|CALCULATE|WHICH|FOLLOWING|OBTAINED|CONTAINS|CONSISTS)', l_upper):
+            return 'Biology', 'Botany'
 
         return None, None
 
@@ -1339,42 +1417,17 @@ async def analyze_pdf_document(pdf_bytes: bytes, filename: str, api_key: Optiona
         else:
             exam_pages.append(pt)
 
-    current_subject = "General"
-    current_sub_subject = "General"
-    if exam_pages:
-        for first_line in exam_pages[0].splitlines()[:10]:
-            s, ss = detect_subject_in_line(first_line)
-            if s:
-                current_subject = s
-                current_sub_subject = ss
-                break
-                
-    if current_subject == "General":
-        first_pg = exam_pages[0].upper() if exam_pages else ""
-        if ' VA ' in first_pg or 'VERBAL' in first_pg:
-            current_subject, current_sub_subject = 'Verbal Ability', 'Reading Comprehension'
-        elif ' QA ' in first_pg or 'QUANTITATIVE' in first_pg:
-            current_subject, current_sub_subject = 'Quantitative Aptitude', 'Arithmetic'
-        elif ' LR ' in first_pg or 'LOGICAL' in first_pg:
-            current_subject, current_sub_subject = 'Logical Reasoning', 'Analytical Reasoning'
-        elif ' DI ' in first_pg or 'DATA INTERPRETATION' in first_pg:
-            current_subject, current_sub_subject = 'Data Interpretation', 'Data Interpretation'
-        elif 'MATHEMATICS' in first_pg or 'MATHS' in first_pg:
-            current_subject, current_sub_subject = 'Mathematics', 'Mathematics'
-        elif 'PHYSICS' in first_pg:
-            current_subject, current_sub_subject = 'Physics', 'Physics'
-        elif 'CHEMISTRY' in first_pg:
-            current_subject, current_sub_subject = 'Chemistry', 'PC'
-        elif 'BIOLOGY' in first_pg or 'BOTANY' in first_pg:
-            current_subject, current_sub_subject = 'Biology', 'Botany'
-
+    # ── ROBUST LINE-BY-LINE SECTION HEADER & QUESTION PARSER ───────────
     extracted_questions = []
     curr_q_num = None
     curr_q_text = []
-    curr_q_subj = current_subject
-    curr_q_sub_subj = current_sub_subject
+    curr_q_subj = None
+    curr_q_sub_subj = None
+    current_subj = None
+    current_sub_sub = None
+    headers_found = set()
 
-    for pt in exam_pages:
+    for p_idx, pt in enumerate(exam_pages):
         for line in pt.splitlines():
             line_s = line.strip()
             if not line_s:
@@ -1382,8 +1435,9 @@ async def analyze_pdf_document(pdf_bytes: bytes, filename: str, api_key: Optiona
 
             new_subj, new_sub_sub = detect_subject_in_line(line_s)
             if new_subj:
-                current_subject = new_subj
-                current_sub_subject = new_sub_sub
+                current_subj = new_subj
+                current_sub_sub = new_sub_sub
+                headers_found.add(new_subj)
 
             m_q = re.match(r'^(?:Q\.?\s*|Question\s*)?(\d{1,3})\s*[\.:\)\-]\s*(.*)$', line_s, re.IGNORECASE)
             if not m_q:
@@ -1405,8 +1459,8 @@ async def analyze_pdf_document(pdf_bytes: bytes, filename: str, api_key: Optiona
                             "sub_subject": curr_q_sub_subj
                         })
                     curr_q_num = q_val
-                    curr_q_subj = current_subject
-                    curr_q_sub_subj = current_sub_subject
+                    curr_q_subj = current_subj
+                    curr_q_sub_subj = current_sub_sub
                     curr_q_text = [m_q.group(2)]
                 else:
                     if curr_q_num is not None:
@@ -1426,88 +1480,35 @@ async def analyze_pdf_document(pdf_bytes: bytes, filename: str, api_key: Optiona
     total_q_count = len(extracted_questions)
     keys = extract_clean_answer_keys(full_text, total_q_count, doc=doc)
 
-    # ── UNIVERSAL SEQUENTIAL SUBJECT BLOCK RESOLVER ─────────────────────
-    # Standardize subject blocks according to exam taxonomy & section sequence
-    fn_upper = filename.upper()
-    is_ipmat = "IPMAT" in fn_upper or ("VA" in fn_upper and "QA" in fn_upper)
-    is_neet = "NEET" in fn_upper or "BIOLOGY" in fn_upper or total_q_count in [180, 200]
-    is_single_va = "REVIEW TEST - 4" in fn_upper or "REVIEW TEST - 9" in fn_upper or "RT – 04 VA" in fn_upper or "RT – 09 VA" in fn_upper
-    is_single_bio = "CT-5" in fn_upper or "CT-2" in fn_upper or ("BIOLOGY" in fn_upper and not is_neet)
-    is_single_phy = "12NERT" in fn_upper or "PRACTICE T EST-2" in fn_upper or "PRACTICE TEST" in fn_upper
-
-    for idx, eq in enumerate(extracted_questions, 1):
-        q_idx = idx
-        if is_single_va:
-            eq["subject"], eq["sub_subject"] = "Verbal Ability", "Reading Comprehension"
-        elif is_single_bio:
-            eq["subject"], eq["sub_subject"] = "Biology", "Botany"
-        elif is_single_phy:
-            eq["subject"], eq["sub_subject"] = "Physics", "Physics"
-        elif is_ipmat:
-            if q_idx <= 25:
-                eq["subject"], eq["sub_subject"] = "Verbal Ability", "Reading Comprehension"
-            elif q_idx <= 50:
-                eq["subject"], eq["sub_subject"] = "Quantitative Aptitude", "Arithmetic"
-            elif q_idx <= 70:
-                eq["subject"], eq["sub_subject"] = "Logical Reasoning", "Analytical Reasoning"
-            elif q_idx <= 80:
-                eq["subject"], eq["sub_subject"] = "Data Interpretation", "Data Interpretation"
+    # ── UNIVERSAL DUAL-ENGINE SEQUENTIAL SUBJECT RESOLVER ───────────────
+    # Rule 1: If question paper explicitly mentioned section headers, propagate them monotonically
+    # Rule 2: If headers are absent (or unlabelled), segment into contiguous sequential blocks from question content
+    valid_headers = [eq["subject"] for eq in extracted_questions if eq.get("subject")]
+    
+    if valid_headers:
+        first_valid_subj = valid_headers[0]
+        active_subj = first_valid_subj
+        active_sub_sub = "Mathematics"
+        for eq in extracted_questions:
+            if eq.get("subject"):
+                active_subj = eq["subject"]
+                active_sub_sub = eq.get("sub_subject", active_subj)
             else:
-                eq["subject"], eq["sub_subject"] = "General Knowledge", "General Awareness"
-        elif is_neet:
-            if total_q_count >= 150:
-                p_chunk = total_q_count // 4
-                if q_idx <= p_chunk:
-                    eq["subject"], eq["sub_subject"] = "Physics", "Physics"
-                elif q_idx <= 2 * p_chunk:
-                    eq["subject"], eq["sub_subject"] = "Chemistry", "PC"
-                else:
-                    eq["subject"], eq["sub_subject"] = "Biology", "Botany"
-            else:
-                if eq["subject"] == "General":
-                    eq["subject"], eq["sub_subject"] = "Biology", "Botany"
-        elif total_q_count == 75:  # Standard JEE Main (25 Math, 25 Phys, 25 Chem)
-            if q_idx <= 25:
-                eq["subject"], eq["sub_subject"] = "Mathematics", "Mathematics"
-            elif q_idx <= 50:
-                eq["subject"], eq["sub_subject"] = "Physics", "Physics"
-            else:
-                eq["subject"], eq["sub_subject"] = "Chemistry", "PC"
-        elif total_q_count == 74:  # 74 Q JEE Main
-            if q_idx <= 25:
-                eq["subject"], eq["sub_subject"] = "Mathematics", "Mathematics"
-            elif q_idx <= 49:
-                eq["subject"], eq["sub_subject"] = "Physics", "Physics"
-            else:
-                eq["subject"], eq["sub_subject"] = "Chemistry", "PC"
-        elif total_q_count == 15 and "ADVANCE" in fn_upper:  # 15 Q JEE Advanced (5 Math, 5 Phys, 5 Chem)
-            if q_idx <= 5:
-                eq["subject"], eq["sub_subject"] = "Mathematics", "Mathematics"
-            elif q_idx <= 10:
-                eq["subject"], eq["sub_subject"] = "Physics", "Physics"
-            else:
-                eq["subject"], eq["sub_subject"] = "Chemistry", "PC"
-        elif total_q_count == 30 and "MAIN" in fn_upper:  # 30 Q CT-4 (10 Math, 10 Chem, 10 Phys)
-            if q_idx <= 10:
-                eq["subject"], eq["sub_subject"] = "Mathematics", "Mathematics"
-            elif q_idx <= 20:
-                eq["subject"], eq["sub_subject"] = "Chemistry", "PC"
-            else:
-                eq["subject"], eq["sub_subject"] = "Physics", "Physics"
-        elif total_q_count in [50, 53, 54] and "ADV" in fn_upper:  # JEE Advanced 3-Section Paper
-            third = total_q_count // 3
-            if q_idx <= 18:
-                eq["subject"], eq["sub_subject"] = "Mathematics", "Mathematics"
-            elif q_idx <= 36:
-                eq["subject"], eq["sub_subject"] = "Physics", "Physics"
-            else:
-                eq["subject"], eq["sub_subject"] = "Chemistry", "PC"
-        else:
-            # Fallback to header detected subject or content
-            if not eq["subject"] or eq["subject"] == "General":
-                c_s, c_ss = detect_subject_from_text(eq["text"])
-                eq["subject"] = c_s if c_s and c_s != "General" else "Mathematics"
-                eq["sub_subject"] = c_ss if c_ss else "Mathematics"
+                eq["subject"] = active_subj
+                eq["sub_subject"] = active_sub_sub
+    else:
+        # Zero-Heading Dynamic Sequential Content Segmentation
+        raw_subjects = []
+        for eq in extracted_questions:
+            s, _ = detect_subject_from_text(eq["text"])
+            raw_subjects.append(s if s else "Mathematics")
+        
+        blocks = dynamic_sequential_block_segmentation(raw_subjects, min_block_size=4)
+        for s, sq, eq_idx in blocks:
+            for idx in range(sq - 1, eq_idx):
+                if idx < len(extracted_questions):
+                    extracted_questions[idx]["subject"] = s
+                    extracted_questions[idx]["sub_subject"] = s
 
     questions = []
     for idx, eq in enumerate(extracted_questions, 1):
