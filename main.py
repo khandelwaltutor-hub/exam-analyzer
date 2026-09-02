@@ -1233,16 +1233,22 @@ async def solve_questions_with_gemini(
                 )
             
             prompt_text = (
-                "You are an academic exam solver and competitive audit expert for JEE Main, NEET, and IPMAT.\n"
-                "MULTI-LEVEL RIGOROUS VERIFICATION PROTOCOL:\n"
-                "1. Solve each question independently from first principles. Calculate exact numerical/logical proofs.\n"
-                "2. Match the calculated result to the best option (1, 2, 3, 4) or numerical value.\n"
-                "3. Provide a concise 1-line step-by-step derivation proof.\n\n"
+                "You are an academic exam solver and competitive taxonomy audit expert for JEE Main, NEET, and IPMAT.\n"
+                "TASK FOR EACH QUESTION:\n"
+                "1. Identify the exact standard NCERT / IPMAT syllabus Chapter Name (e.g. 'Time & Work', 'Logarithms', 'Permutations & Combinations', 'Reading Comprehension', 'Rotational Motion', 'Chemical Kinetics', etc.).\n"
+                "2. Identify the specific Micro-Topic / Concept tested (e.g. 'Alternating Days & Fatigue Efficiency', 'Vieta\\'s Formulas', 'Primary Purpose & Inference').\n"
+                "3. Classify Difficulty as 'E' (Easy), 'M' (Medium), or 'D' (Difficult).\n"
+                "4. Estimate recommended Time in minutes (e.g. 1.5, 2.0, 2.5).\n"
+                "5. Solve independently from first principles and derive the exact answer and concise step-by-step proof.\n\n"
                 "Return ONLY a valid JSON array of objects with exact keys:\n"
                 "  'q_no': int,\n"
+                "  'chapter_name': str,\n"
+                "  'topic_name': str,\n"
+                "  'difficulty': str,\n"
+                "  'time_required': float,\n"
                 "  'ai_answer': str,\n"
                 "  'explanation': str\n\n"
-                "Questions to solve:\n" + "\n\n".join(prompt_items)
+                "Questions to process:\n" + "\n\n".join(prompt_items)
             )
 
             models_cascade = ["gemini-2.5-flash", "gemini-2.0-flash", "gemini-1.5-flash"]
@@ -1263,7 +1269,7 @@ async def solve_questions_with_gemini(
                         headers={"Content-Type": "application/json"}
                     )
                     loop = asyncio.get_event_loop()
-                    res = await loop.run_in_executor(None, lambda: urllib.request.urlopen(req, timeout=12))
+                    res = await loop.run_in_executor(None, lambda: urllib.request.urlopen(req, timeout=14))
                     data = json.loads(res.read())
                     content_text = data["candidates"][0]["content"]["parts"][0]["text"]
                     solved_batch = json.loads(content_text)
@@ -1276,6 +1282,11 @@ async def solve_questions_with_gemini(
                         t_ans = str(q.get("teacher_answer", "")).strip()
                         if qno in solved_map:
                             sol = solved_map[qno]
+                            if sol.get("chapter_name"): q["chapter_name"] = sol["chapter_name"]
+                            if sol.get("topic_name"): q["topic_name"] = sol["topic_name"]
+                            if sol.get("difficulty"): q["difficulty"] = sol["difficulty"]
+                            if sol.get("time_required"): q["time_required"] = sol["time_required"]
+                            
                             ai_ans = str(sol.get("ai_answer", t_ans)).strip()
                             expl = str(sol.get("explanation", "Derived from first principles")).strip()
                             q["ai_answer"] = ai_ans
