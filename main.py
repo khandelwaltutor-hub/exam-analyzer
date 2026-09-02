@@ -1392,18 +1392,22 @@ async def analyze_pdf_document(pdf_bytes: bytes, filename: str, api_key: Optiona
         l_upper = l_clean.upper().strip("()[]{} -–:.\t")
         
         # 1. Direct High-Confidence Header Signals
-        if re.search(r'\b(?:RT[\s\-–]*\d+\s+VA|VERBAL\s*ABILITY|READING\s*COMPREHENSION|ENGLISH)\b', l_upper) or l_upper in ['VA', 'VERBAL ABILITY', 'SECTION - VA', 'PART - VA']:
+        if re.search(r'\b(?:RT[\s\-–]*\d+\s+VA|VERBAL\s*(?:ABILITY|APTITUDE)|READING\s*COMPREHENSION|VARC|ENGLISH)\b', l_upper) or l_upper in ['VA', 'VERBAL', 'VERBAL ABILITY', 'SECTION - VA', 'SECTION 3: VERBAL ABILITY', 'PART - VA']:
             return 'Verbal Ability', 'Reading Comprehension'
-        if re.search(r'\b(?:RT[\s\-–]*\d+\s+QA|QUANTITATIVE\s*APTITUDE|QUANT\s*APTITUDE)\b', l_upper) or l_upper in ['QA', 'QUANTITATIVE APTITUDE', 'SECTION - QA', 'PART - QA']:
+            
+        if re.search(r'\b(?:RT[\s\-–]*\d+\s+QA|QUANTITATIVE\s*(?:ABILITY|APTITUDE)|QUANT\s*(?:ABILITY|APTITUDE)|QUANTITATIVE|QA)\b', l_upper) or l_upper in ['QA', 'QUANT', 'QUANTITATIVE APTITUDE', 'QUANTITATIVE ABILITY', 'SECTION - QA', 'SECTION 1: QA', 'PART - QA']:
             return 'Quantitative Aptitude', 'Arithmetic'
-        if re.search(r'\b(?:RT[\s\-–]*\d+\s+LR|LOGICAL\s*REASONING|ANALYTICAL\s*REASONING)\b', l_upper) or l_upper in ['LR', 'LOGICAL REASONING', 'SECTION - LR', 'PART - LR']:
+            
+        if re.search(r'\b(?:RT[\s\-–]*\d+\s+LR|LOGICAL\s*(?:REASONING|ABILITY)|ANALYTICAL\s*REASONING|REASONING\s*ABILITY|DILR|LRDI)\b', l_upper) or l_upper in ['LR', 'LOGICAL REASONING', 'SECTION - LR', 'PART - LR']:
             return 'Logical Reasoning', 'Analytical Reasoning'
+            
         if re.search(r'\b(?:RT[\s\-–]*\d+\s+DI|DATA\s*INTERPRETATION)\b', l_upper) or l_upper in ['DI', 'DATA INTERPRETATION', 'SECTION - DI', 'PART - DI']:
             return 'Data Interpretation', 'Data Interpretation'
+            
         if re.search(r'\b(?:GENERAL\s*KNOWLEDGE|GENERAL\s*AWARENESS|CURRENT\s*AFFAIRS)\b', l_upper) or l_upper in ['GK', 'GA', 'GENERAL KNOWLEDGE']:
             return 'General Knowledge', 'General Awareness'
 
-        if len(l_raw) >= 70 or any(k in l_upper for k in ["CONTAIN", "CONSIST", "MARKS", "MINUTE", "HOUR", "TOTAL", "ALLOWED", "INSTRUCTION", "SESSION", "NEGATIVE"]):
+        if len(l_raw) >= 80 or any(k in l_upper for k in ["CONTAIN", "CONSIST", "MARKS", "MINUTE", "HOUR", "TOTAL", "ALLOWED", "INSTRUCTION", "SESSION", "NEGATIVE"]):
             return None, None
 
         if re.search(r'\b(MATHEMATICS|MATHEMATCS|MATHS|MATH)\b', l_upper):
