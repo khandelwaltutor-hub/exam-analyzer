@@ -242,7 +242,7 @@ def detect_subject_from_text(text: str) -> Tuple[str, str]:
         elif best_subj == "Biology": sub_sub = "Botany"
         return best_subj, sub_sub
 
-    if any(c in t_low for c in ["+", "=", "^", "∫", "dx", "dy", "√", "≤", "≥", "lim", "sn", "f(x)"]):
+    if any(c in t_low for c in ["∫", "dy/dx", "lim_{", "f(x)", "g(x)", "arg(z)", "det(", "matrix"]):
         return "Mathematics", "Mathematics"
 
     return "General", "General"
@@ -1397,7 +1397,7 @@ async def analyze_pdf_document(pdf_bytes: bytes, filename: str, api_key: Optiona
         if re.search(r'\b(?:GENERAL\s*KNOWLEDGE|GENERAL\s*AWARENESS|CURRENT\s*AFFAIRS)\b', l_upper) or l_upper in ['GK', 'GA', 'GENERAL KNOWLEDGE']:
             return 'General Knowledge', 'General Awareness'
 
-        if len(l_raw) >= 60 or any(k in l_upper for k in ["CONTAIN", "CONSIST", "MARKS", "MINUTE", "HOUR", "TOTAL", "ALLOWED", "INSTRUCTION", "SESSION", "NEGATIVE", "PART-", "PART -"]):
+        if len(l_raw) >= 70 or any(k in l_upper for k in ["CONTAIN", "CONSIST", "MARKS", "MINUTE", "HOUR", "TOTAL", "ALLOWED", "INSTRUCTION", "SESSION", "NEGATIVE"]):
             return None, None
 
         if re.search(r'\b(MATHEMATICS|MATHEMATCS|MATHS|MATH)\b', l_upper):
