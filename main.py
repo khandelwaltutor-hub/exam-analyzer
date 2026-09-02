@@ -252,7 +252,7 @@ def classify_question_taxonomy(q_text: str, detected_subject: str, detected_sub_
 
     # ── 1. VERBAL ABILITY ──────────────────────────────────────────
     if detected_subject == "Verbal Ability":
-        if any(w in q_low for w in ["passage", "author", "infer", "primary purpose", "according to the text", "metaphor", "central idea", "tone of the", "weaken the author", "dry leaves", "woodrow wilson"]):
+        if any(w in q_low for w in ["passage", "author", "infer", "primary purpose", "according to the text", "metaphor", "central idea", "tone of the", "weaken", "strengthen", "assumption"]):
             if "purpose" in q_low:
                 return "Reading Comprehension", "Reading Comprehension", "Primary Purpose of Passage"
             if "infer" in q_low or "implies" in q_low or "inference" in q_low:
@@ -261,246 +261,238 @@ def classify_question_taxonomy(q_text: str, detected_subject: str, detected_sub_
                 return "Reading Comprehension", "Reading Comprehension", "Argument Evaluation & Assumptions"
             return "Reading Comprehension", "Reading Comprehension", "Central Idea & Theme"
 
-        if any(w in q_low for w in ["arrange the following sentences", "logical order", "coherent paragraph", "sentence arrangement", "para jumble"]):
+        if any(w in q_low for w in ["arrange the following", "logical order", "coherent paragraph", "sentence arrangement", "para jumble"]):
             return "Verbal Logic", "Verbal Reasoning & Para Jumbles", "Para Jumbles & Sentence Ordering"
 
         if any(w in q_low for w in ["active voice", "passive voice"]):
             return "Grammar", "Grammar & Sentence Structure", "Active & Passive Voice"
-        if any(w in q_low for w in ["direct speech", "indirect speech", "reported speech", "reporting the statement", "said, \"", "asked the"]):
+        if any(w in q_low for w in ["direct speech", "indirect speech", "reported speech", "said,", "asked the"]):
             return "Grammar", "Grammar & Sentence Structure", "Direct & Indirect Speech"
         if any(w in q_low for w in ["punctuation", "semicolon", "comma", "exclamation", "question mark"]):
             return "Grammar", "Grammar & Sentence Structure", "Punctuation Rules"
-        if any(w in q_low for w in ["grammatically", "grammatical", "pronoun", "adjective", "adverb", "preposition", "match list-i with list-ii according to the grammatical"]):
+        if any(w in q_low for w in ["grammatically", "grammatical", "pronoun", "adjective", "adverb", "preposition", "error spotting", "sentence correction"]):
             return "Grammar", "Grammar & Sentence Structure", "Sentence Correction & Error Spotting"
         if any(w in q_low for w in ["spelling", "correct spelling"]):
             return "Vocabulary", "Vocabulary & Word Usage", "Spelling Accuracy"
-        if any(w in q_low for w in ["substitute for the following", "person who", "one word"]):
+        if any(w in q_low for w in ["substitute for", "one word substitution", "one word"]):
             return "Vocabulary", "Vocabulary & Word Usage", "One-Word Substitution"
-        if any(w in q_low for w in ["meaning of the phrase", "meaning of the underlined phrase", "cut corners", "on the threshold", "bona fide", "odd one out"]):
+        if any(w in q_low for w in ["meaning of the phrase", "idiom", "phrasal verb"]):
             return "Vocabulary", "Vocabulary & Word Usage", "Idioms & Phrasal Verbs"
-        if any(w in q_low for w in ["closest in meaning", "synonym", "same meaning as the underlined"]):
+        if any(w in q_low for w in ["closest in meaning", "synonym", "antonym", "opposite in meaning"]):
             return "Vocabulary", "Vocabulary & Word Usage", "Synonyms & Antonyms"
-        if any(w in q_low for w in ["fill in the blank", "complete the following sentence"]):
+        if any(w in q_low for w in ["fill in the blank", "complete the sentence"]):
             return "Vocabulary", "Vocabulary & Word Usage", "Sentence Completion & Fill in Blanks"
 
         return "Grammar", "Grammar & Sentence Structure", "Sentence Correction & Error Spotting"
 
     # ── 2. QUANTITATIVE APTITUDE ──────────────────────────────────
     elif detected_subject == "Quantitative Aptitude":
-        if any(w in q_low for w in ["bar chart", "table chart", "positive with covid", "bahubali", "robot 2.0", "inox", "pvr", "viewers", "positive tested", "stack bar"]):
+        if any(w in q_low for w in ["bar chart", "table chart", "pie chart", "line graph", "data given", "viewers", "tabular"]):
             return "Data Interpretation", "Chart & Graph Interpretation", "Bar Charts & Stacked Bars" if "bar" in q_low else "Data Tables & Multi-Table Analysis"
 
-        if any(w in q_low for w in ["circular conference table", "adjacent to each other", "executive", "seated around", "permutation", "combination", "ncr", "npr", "ways can"]):
+        if any(w in q_low for w in ["circular table", "seated around", "permutation", "combination", "ncr", "npr", "ways can"]):
             return "Modern Mathematics", "Modern Mathematics", "Permutations & Combinations"
-        if any(w in q_low for w in ["venn diagram", "study mathematics", "study physics", "study chemistry", "study none", "three subjects", "set theory"]):
+        if any(w in q_low for w in ["venn diagram", "set theory", "study mathematics", "three subjects"]):
             return "Modern Mathematics", "Modern Mathematics", "Set Theory & Venn Diagrams"
-        if any(w in q_low for w in ["tangent", "secant", "circumference at a and b", "radius of the circle", "external point p", "circle"]):
+        if any(w in q_low for w in ["tangent", "secant", "circumference", "radius of circle", "circle", "chord"]):
             return "Geometry & Mensuration", "Geometry & Mensuration", "Circles, Tangents & Secants"
-        if any(w in q_low for w in ["angle bisector", "internal angle", "triangle", "bd", "ab =", "ac =", "bc ="]):
+        if any(w in q_low for w in ["angle bisector", "triangle", "hypotenuse", "pythagoras", "similarity"]):
             return "Geometry & Mensuration", "Geometry & Mensuration", "Angle Bisector & Similarity"
-        if any(w in q_low for w in ["solid metallic", "right circular cone", "recast into a solid", "curved surface area", "cylinder", "spherical lead balls", "submerged", "water level rise"]):
+        if any(w in q_low for w in ["cone", "cylinder", "sphere", "cuboid", "volume", "curved surface area", "mensuration"]):
             return "Geometry & Mensuration", "Geometry & Mensuration", "3D Mensuration (Volume & Surface Area)"
 
-        if any(w in q_low for w in ["logarithmic", "log3", "log9", "log27", "logarithm"]):
+        if any(w in q_low for w in ["logarithm", "log3", "log9", "log27", "log("]):
             return "Algebra", "Algebraic Expressions & Equations", "Logarithms & Properties"
-        if any(w in q_low for w in ["geometric progression", " gp ", "common ratio", "5th term"]):
+        if any(w in q_low for w in ["geometric progression", " gp ", "common ratio"]):
             return "Algebra", "Algebraic Expressions & Equations", "Progressions (AP, GP, HP)"
-        if any(w in q_low for w in ["arithmetic progression", " ap ", "sum of the first m terms", "ratio of the mth term"]):
+        if any(w in q_low for w in ["arithmetic progression", " ap ", "common difference"]):
             return "Algebra", "Algebraic Expressions & Equations", "Progressions (AP, GP, HP)"
-        if any(w in q_low for w in ["roots of the quadratic", "alpha", "beta", "quadratic equation", "x2"]):
+        if any(w in q_low for w in ["roots of quadratic", "quadratic equation", "discriminant"]):
             return "Algebra", "Algebraic Expressions & Equations", "Quadratic Equations & Roots"
-        if any(w in q_low for w in ["system of linear equations", "infinitely many solutions", "2x + 3y"]):
+        if any(w in q_low for w in ["linear equation", "system of equations", "simultaneous equations"]):
             return "Algebra", "Algebraic Expressions & Equations", "Linear Equations (Single & Multi-Variable)"
-        if any(w in q_low for w in ["surd", "sqrt", "x + 1/x", "evaluate the numerical value of"]):
+        if any(w in q_low for w in ["surd", "indices", "simplification"]):
             return "Number System", "Number Systems & Properties", "Surds, Indices & Simplification"
-
-        if any(w in q_low for w in ["remainder when", "divided by 33", "remainder"]):
+        if any(w in q_low for w in ["remainder", "divided by", "divisible by"]):
             return "Number System", "Number Systems & Properties", "Remainders & Cyclicity"
-        if any(w in q_low for w in ["factors of n", "perfect squares", "factors"]):
+        if any(w in q_low for w in ["factors", "hcf", "lcm", "prime factorisation"]):
             return "Number System", "Number Systems & Properties", "Divisibility Rules & Factors"
-        if any(w in q_low for w in ["unit digit", "1! + 2!", "factorial"]):
-            return "Number System", "Number Systems & Properties", "Unit Digit & Last Two Digits"
-        if any(w in q_low for w in ["divisible by 72", "nine-digit number", "5x – 3y", "divisibility"]):
-            return "Number System", "Number Systems & Properties", "Divisibility Rules & Factors"
-        if any(w in q_low for w in ["hcf and lcm", "hcf", "lcm", "product of the hcf"]):
-            return "Number System", "Number Systems & Properties", "HCF & LCM Applications"
+        if any(w in q_low for w in ["cost price", "selling price", "profit", "loss", "discount", "marked price"]):
+            return "Commercial Arithmetic", "Commercial Arithmetic", "Profit, Loss & Discount"
+        if any(w in q_low for w in ["simple interest", "compound interest", "per annum", "compounded"]):
+            return "Commercial Arithmetic", "Commercial Arithmetic", "Simple & Compound Interest"
+        if any(w in q_low for w in ["time and work", "pipes and cistern", "tank", "efficiency"]):
+            return "Speed, Time & Work", "Speed, Time & Work", "Time & Work"
+        if any(w in q_low for w in ["speed", "distance", "train", "upstream", "downstream", "boat", "km/hr"]):
+            return "Speed, Time & Work", "Speed, Time & Work", "Time, Speed & Distance"
+        if any(w in q_low for w in ["ratio", "proportion", "mixture", "alligation", "partnership"]):
+            return "Commercial Arithmetic", "Commercial Arithmetic", "Ratio, Proportion & Variation"
+        if any(w in q_low for w in ["average", "ages", "mean of"]):
+            return "Averages & Mixtures", "Averages & Mixtures", "Averages & Weighted Averages"
 
-        if any(w in q_low for w in ["motorboat", "upstream", "downstream", "speed of the river"]):
-            return "Arithmetic", "Speed, Time & Work", "Boats & Streams"
-        if any(w in q_low for w in ["circular track", "running", "athletes", "meet for the third time"]):
-            return "Arithmetic", "Speed, Time & Work", "Races & Circular Tracks"
-        if any(w in q_low for w in ["express trains", "reach mumbai", "speed of t1", "train"]):
-            return "Arithmetic", "Speed, Time & Work", "Relative Speed & Trains"
-        if any(w in q_low for w in ["men, 4 women", "efficiency", "workers", "undertakes to construct"]):
-            return "Arithmetic", "Speed, Time & Work", "Time & Work"
-        if any(w in q_low for w in ["inlet pipes", "reservoir", "drainage pipe", "pipe a is closed"]):
-            return "Arithmetic", "Speed, Time & Work", "Pipes & Cisterns"
-
-        if any(w in q_low for w in ["bowling average", "average score", "average of section", "average"]):
-            return "Arithmetic", "Averages & Mixtures", "Averages & Weighted Averages"
-        if any(w in q_low for w in ["casks a, b", "ethanol and water", "drawn and poured", "mixture", "alligation"]):
-            return "Arithmetic", "Averages & Mixtures", "Mixtures & Alligation"
-        if any(w in q_low for w in ["monthly incomes", "expenditures", "monthly savings", "ratio"]):
-            return "Arithmetic", "Commercial Arithmetic", "Ratio, Proportion & Variation"
-        if any(w in q_low for w in ["installment", "compounded annually", "borrows ₹", "simple interest", "compound interest", "capital"]):
-            return "Arithmetic", "Commercial Arithmetic", "Simple & Compound Interest"
-        if any(w in q_low for w in ["tampered balance", "profit percentage", "marked price", "trade discount", "refurbished", "cost price", "profit of", "loss of", "sold"]):
-            return "Arithmetic", "Commercial Arithmetic", "Profit, Loss & Discount"
-        if any(w in q_low for w in ["election", "candidates", "votes", "procurement volume", "percentage", "%"]):
-            return "Arithmetic", "Commercial Arithmetic", "Percentages & Applications"
-
-        return "Arithmetic", "Commercial Arithmetic", "Percentages & Applications"
+        return "Commercial Arithmetic", "Commercial Arithmetic", "Percentages & Applications"
 
     # ── 3. LOGICAL REASONING ──────────────────────────────────────
     elif detected_subject == "Logical Reasoning":
-        if any(w in q_low for w in ["clock loses", "clock", "set right at 12"]):
+        if any(w in q_low for w in ["clock loses", "clock", "angle between hands"]):
             return "Time & Calendar Reasoning", "Time, Calendar & Clocks", "Clocks (Angle & Faulty Clocks)"
-        if any(w in q_low for w in ["january, 2011", "day of the week", "december 17", "sunday come", "calendar"]):
+        if any(w in q_low for w in ["calendar", "day of the week", "leap year"]):
             return "Time & Calendar Reasoning", "Time, Calendar & Clocks", "Calendar (Day & Date Calculations)"
-        if any(w in q_low for w in ["facing south", "moves towards south-east", "north-west", "direction", "distance"]):
+        if any(w in q_low for w in ["facing south", "facing north", "direction", "turns left", "turns right"]):
             return "Analytical Reasoning", "Analytical & Deductive Reasoning", "Direction & Distance Sense"
-        if any(w in q_low for w in ["eight friends", "sitting in a circle", "facing the centre", "third to the right", "immediate neighbour", "seating"]):
+        if any(w in q_low for w in ["sitting in a circle", "circular arrangement", "seating arrangement", "row of people"]):
             return "Analytical Reasoning", "Analytical & Deductive Reasoning", "Circular Seating Arrangement"
-        if any(w in q_low for w in ["row of girls", "boys in a horizontal row", "shifted by three places", "ranking", "position from"]):
+        if any(w in q_low for w in ["ranking", "position from left", "order"]):
             return "Analytical Reasoning", "Analytical & Deductive Reasoning", "Order, Ranking & Comparison"
-        if any(w in q_low for w in ["cube with side 5 cm", "painted yellow", "cut into 125", "uncoloured", "three surfaces coloured", "folded to form a cube", "dice", "opposite of number"]):
+        if any(w in q_low for w in ["cube", "dice", "opposite face", "painted surfaces"]):
             return "Spatial & Cube Reasoning", "Spatial & Cube Reasoning", "Cubes, Dice & Box Folding"
-        if any(w in q_low for w in ["code language", "choline", "musical", "written as", "coding"]):
+        if any(w in q_low for w in ["code language", "coded as", "coding decoding"]):
             return "Logical Sequences & Coding", "Sequences, Codes & Analogy", "Letter & Pattern Coding"
-        if any(w in q_low for w in ["lion : roar", "63 : 21", "analogy", ": :"]):
+        if any(w in q_low for w in ["analogy", ": :", "is related to"]):
             return "Logical Sequences & Coding", "Sequences, Codes & Analogy", "Word & Number Analogy"
-        if any(w in q_low for w in ["series", "replace the question mark", "360, 180", "0, 4, 18"]):
+        if any(w in q_low for w in ["series", "missing term", "number series"]):
             return "Logical Sequences & Coding", "Sequences, Codes & Analogy", "Number & Alphabet Series"
-        if any(w in q_low for w in ["odd numbers", "odd one out"]):
-            return "Logical Sequences & Coding", "Sequences, Codes & Analogy", "Classification & Odd One Out"
+        if any(w in q_low for w in ["blood relation", "father", "mother", "sister", "brother", "uncle"]):
+            return "Analytical Reasoning", "Analytical & Deductive Reasoning", "Blood Relations"
 
         return "Analytical Reasoning", "Analytical & Deductive Reasoning", "Linear Seating Arrangement"
 
     # ── 4. DATA INTERPRETATION ────────────────────────────────────
     elif detected_subject == "Data Interpretation":
-        if any(w in q_low for w in ["bar chart", "stack bar", "positive with covid", "cases in japan", "february and march", "tested positive"]):
+        if any(w in q_low for w in ["bar chart", "stack bar", "bar graph"]):
             return "Data Interpretation", "Chart & Graph Interpretation", "Bar Charts & Stacked Bars"
-        if any(w in q_low for w in ["theatre", "bahubali", "robot", "viewers", "children", "table below", "adults"]):
-            return "Data Interpretation", "Tabular & Caselet DI", "Data Tables & Multi-Table Analysis"
-        return "Data Interpretation", "Chart & Graph Interpretation", "Bar Charts & Stacked Bars"
+        if any(w in q_low for w in ["pie chart", "degree distribution"]):
+            return "Data Interpretation", "Chart & Graph Interpretation", "Pie Charts & Degree Distribution"
+        return "Data Interpretation", "Tabular & Caselet DI", "Data Tables & Multi-Table Analysis"
 
     # ── 5. STEM: PHYSICS ──────────────────────────────────────────
     elif detected_subject == "Physics":
-        if any(w in q_low for w in ["vector", "cross product", "dot product", "scalar triple", "coplanar"]):
-            return "Physics", "Kinematics", "1D Motion & Kinematics Equations"
-        if any(w in q_low for w in ["projectile", "trajectory", "range", "velocity", "acceleration", "kinematics", "speed", "retardation"]):
-            return "Physics", "Kinematics", "Projectile Motion"
-        if any(w in q_low for w in ["friction", "newton", "pulley", "tension", "banking", "free body", "fbd", "momentum", "impulse"]):
+        if any(w in q_low for w in ["dimension", "dimensional formula", "vernier", "screw gauge", "error analysis", "least count"]):
+            return "Physics", "Units and Measurements", "Dimensional Analysis"
+        if any(w in q_low for w in ["projectile", "trajectory", "range", "velocity", "acceleration", "kinematics", "speed", "relative velocity", "1d motion"]):
+            return "Physics", "Kinematics", "Projectile Motion" if "projectile" in q_low else "1D Motion & Kinematics Equations"
+        if any(w in q_low for w in ["friction", "newton", "pulley", "tension", "normal reaction", "momentum", "impulse", "laws of motion"]):
             return "Physics", "Laws of Motion", "Newton's Laws of Motion"
-        if any(w in q_low for w in ["work-energy", "work done", "conservative", "power", "collision", "spring", "elastic potential"]):
+        if any(w in q_low for w in ["work-energy", "work done", "conservative force", "power", "collision", "spring", "elastic potential"]):
             return "Physics", "Work, Power & Energy", "Work-Energy Theorem"
         if any(w in q_low for w in ["moment of inertia", "torque", "angular momentum", "rolling", "centre of mass", "radius of gyration"]):
             return "Physics", "Rotational Motion", "Moment of Inertia"
-        if any(w in q_low for w in ["gravitat", "escape velocity", "orbital", "kepler", "satellite", "earth mass"]):
+        if any(w in q_low for w in ["gravitat", "escape velocity", "orbital velocity", "kepler", "satellite", "earth's mass"]):
             return "Physics", "Gravitation", "Escape & Orbital Velocity"
-        if any(w in q_low for w in ["bernoulli", "viscosity", "terminal velocity", "surface tension", "capillary", "pascal", "hydraulic"]):
+        if any(w in q_low for w in ["bernoulli", "viscosity", "terminal velocity", "surface tension", "capillary", "pascal", "elasticity", "hooke", "young's modulus"]):
             return "Physics", "Mechanical Properties of Matter", "Bernoulli's Principle"
-        if any(w in q_low for w in ["carnot", "adiabatic", "isothermal", "entropy", "calorimetry", "thermal expansion", "heat engine"]):
+        if any(w in q_low for w in ["carnot", "adiabatic", "isothermal", "entropy", "calorimetry", "thermal expansion", "heat engine", "kinetic theory"]):
             return "Physics", "Thermodynamics & Heat", "Heat Engines & Carnot Cycle"
-        if any(w in q_low for w in ["shm", "simple harmonic", "pendulum", "frequency", "standing wave", "beats", "doppler"]):
+        if any(w in q_low for w in ["shm", "simple harmonic", "pendulum", "frequency", "standing wave", "beats", "doppler", "sound wave"]):
             return "Physics", "Oscillations & Waves", "Simple Harmonic Motion"
-        if any(w in q_low for w in ["gauss", "coulomb", "electric field", "electric flux", "dipole", "dielectric", "capacit"]):
+        if any(w in q_low for w in ["gauss", "coulomb", "electric field", "electric flux", "dipole", "dielectric", "capacit", "point charge", "charge"]):
             return "Physics", "Electrostatics", "Coulomb's Law & Electric Field"
-        if any(w in q_low for w in ["resistor", "kirchhoff", "wheatstone", "potentiometer", "meter bridge", "drift velocity", "rc circuit", "ohm"]):
+        if any(w in q_low for w in ["resistor", "kirchhoff", "wheatstone", "potentiometer", "meter bridge", "drift velocity", "rc circuit", "ohm", "current electricity"]):
             return "Physics", "Current Electricity", "Kirchhoff's Laws & Circuits"
-        if any(w in q_low for w in ["biot-savart", "ampere", "lorentz", "magnetic field", "cyclotron", "galvanometer", "solenoid"]):
+        if any(w in q_low for w in ["biot-savart", "ampere", "lorentz", "magnetic field", "cyclotron", "galvanometer", "solenoid", "toroid"]):
             return "Physics", "Magnetism & Magnetic Effects", "Biot-Savart Law"
-        if any(w in q_low for w in ["faraday", "lenz", "motional emf", "inductance", "lcr", "resonance", "transformer", "alternating current"]):
+        if any(w in q_low for w in ["faraday", "lenz", "motional emf", "inductance", "lcr", "resonance", "transformer", "alternating current", "ac circuit"]):
             return "Physics", "Electromagnetic Induction & AC", "AC Circuits (LCR Series)"
-        if any(w in q_low for w in ["prism", "refraction", "reflection", "lens", "mirror", "ydse", "interference", "diffraction", "polarisation"]):
+        if any(w in q_low for w in ["prism", "refraction", "reflection", "lens", "mirror", "ydse", "interference", "diffraction", "polarisation", "optical instrument"]):
             return "Physics", "Ray & Wave Optics", "Lenses & Mirrors"
         if any(w in q_low for w in ["photoelectric", "de broglie", "bohr", "hydrogen spectrum", "radioactivity", "half-life", "nuclear", "diode", "semiconductor", "logic gate"]):
             return "Physics", "Modern Physics", "Photoelectric Effect & Photons"
+        
         return "Physics", "Kinematics", "1D Motion & Kinematics Equations"
 
     # ── 6. STEM: CHEMISTRY ────────────────────────────────────────
     elif detected_subject == "Chemistry":
-        # Check OC
-        if any(w in q_low for w in ["iupac", "aldol", "cannizzaro", "sn1", "sn2", "carbocation", "alkane", "alkene", "alkyne", "alcohol", "phenol", "aldehyde", "ketone", "carboxylic", "amine", "diazonium", "carbohydrate", "amino acid", "protein", "polymer", "biomolecule"]):
-            if "aldol" in q_low or "cannizzaro" in q_low:
+        # Organic Chemistry
+        if any(w in q_low for w in ["iupac", "aldol", "cannizzaro", "sn1", "sn2", "carbocation", "alkane", "alkene", "alkyne", "alcohol", "phenol", "aldehyde", "ketone", "carboxylic", "amine", "diazonium", "carbohydrate", "amino acid", "protein", "polymer", "biomolecule", "grignard", "ozonolysis", "resonance", "hyperconjugation", "aromatic"]):
+            if "aldol" in q_low or "cannizzaro" in q_low or "aldehyde" in q_low or "ketone" in q_low or "carboxylic" in q_low:
                 return "OC", "Oxygen-Containing Functional Groups", "Aldol & Cannizzaro Reactions"
-            if "sn1" in q_low or "sn2" in q_low:
+            if "sn1" in q_low or "sn2" in q_low or "haloalkane" in q_low or "haloarene" in q_low:
                 return "OC", "Haloalkanes & Haloarenes", "SN1 & SN2 Mechanisms"
-            if "iupac" in q_low or "resonance" in q_low or "hyperconjugation" in q_low:
-                return "OC", "General Organic Chemistry (GOC)", "IUPAC Nomenclature"
+            if "amine" in q_low or "diazonium" in q_low:
+                return "OC", "Nitrogen-Containing Compounds", "Amines: Basicity & Tests"
+            if "polymer" in q_low or "carbohydrate" in q_low or "amino acid" in q_low:
+                return "OC", "Biomolecules & Everyday Chemistry", "Biomolecules & Everyday Chemistry"
+            if "alkene" in q_low or "alkyne" in q_low or "alkane" in q_low or "aromatic" in q_low or "hydrocarbon" in q_low:
+                return "OC", "Hydrocarbons", "Alkanes, Alkenes & Alkynes"
             return "OC", "General Organic Chemistry (GOC)", "IUPAC Nomenclature"
 
-        # Check IOC
-        if any(w in q_low for w in ["complex", "ligand", "coordination", "werner", "cft", "crystal field", "isomerism", "vsepr", "hybridisation", "mot", "bond order", "d-block", "f-block", "p-block", "periodic", "kmno4"]):
-            if "complex" in q_low or "ligand" in q_low or "werner" in q_low or "cft" in q_low or "coordination" in q_low:
-                return "IOC", "Coordination Compounds", "Crystal Field Theory (CFT)" if ("cft" in q_low or "crystal" in q_low) else ("Werner's Theory & Coordination Number" if "werner" in q_low else "IUPAC Nomenclature of Complexes")
-            if "vsepr" in q_low or "hybridisation" in q_low or "bond order" in q_low:
+        # Inorganic Chemistry
+        if any(w in q_low for w in ["complex", "ligand", "coordination", "werner", "cft", "crystal field", "isomerism", "vsepr", "hybridisation", "hybridization", "mot", "bond order", "d-block", "f-block", "p-block", "periodic", "kmno4", "k2cr2o7", "chelat", "bridging ligand"]):
+            if "complex" in q_low or "ligand" in q_low or "werner" in q_low or "cft" in q_low or "coordination" in q_low or "chelat" in q_low:
+                return "IOC", "Coordination Compounds", "Crystal Field Theory (CFT)" if ("cft" in q_low or "crystal" in q_low) else "IUPAC Nomenclature of Complexes"
+            if "vsepr" in q_low or "hybridis" in q_low or "hybridiz" in q_low or "bond order" in q_low or "chemical bonding" in q_low:
                 return "IOC", "Chemical Bonding & Structure", "VSEPR Theory & Molecular Shapes"
+            if "periodic" in q_low or "atomic radi" in q_low or "ionization energy" in q_low:
+                return "IOC", "Periodic Table & Periodicity", "Periodic Trends (IE, EA, EN)"
+            if "d-block" in q_low or "f-block" in q_low or "kmno4" in q_low or "k2cr2o7" in q_low:
+                return "IOC", "d & f-Block Elements", "Transition Metals Properties"
             return "IOC", "Coordination Compounds", "IUPAC Nomenclature of Complexes"
 
-        # PC fallback
-        if any(w in q_low for w in ["rate", "order", "half-life", "arrhenius", "activation energy"]):
+        # Physical Chemistry
+        if any(w in q_low for w in ["rate", "order of reaction", "half-life", "arrhenius", "activation energy", "chemical kinetics"]):
             return "PC", "Chemical Kinetics", "Rate Law & Order of Reaction"
-        if any(w in q_low for w in ["nernst", "emf", "electrolysis", "faraday", "conductance", "conductivity"]):
+        if any(w in q_low for w in ["nernst", "emf", "electrolysis", "faraday", "conductance", "conductivity", "redox", "oxidation number"]):
             return "PC", "Redox & Electrochemistry", "Galvanic Cells & Nernst Equation"
-        if any(w in q_low for w in ["mole", "molarity", "molality", "stoichiometry", "limiting reagent"]):
+        if any(w in q_low for w in ["mole", "molarity", "molality", "stoichiometry", "limiting reagent", "empirical formula"]):
             return "PC", "Some Basic Concepts of Chemistry", "Mole Concept & Molar Mass"
-        if any(w in q_low for w in ["ph ", "buffer", "solubility product", "ksp", "le chatelier"]):
+        if any(w in q_low for w in ["ph ", "buffer", "solubility product", "ksp", "le chatelier", "equilibrium"]):
             return "PC", "Equilibrium", "pH Calculations & Buffer Solutions"
-        if any(w in q_low for w in ["raoult", "colligative", "elevation", "depression", "osmotic"]):
+        if any(w in q_low for w in ["raoult", "colligative", "elevation in boiling", "depression in freezing", "osmotic", "solutions"]):
             return "PC", "Solutions", "Colligative Properties"
+        if any(w in q_low for w in ["enthalpy", "entropy", "gibbs", "thermodynamics", "hess law", "ideal gas", "real gas"]):
+            return "PC", "States of Matter & Thermodynamics", "First Law & Enthalpy"
+        if any(w in q_low for w in ["bohr", "quantum number", "orbital", "electronic config", "aufbau"]):
+            return "PC", "Structure of Atom", "Quantum Numbers & Electronic Config"
 
         return "PC", "Some Basic Concepts of Chemistry", "Mole Concept & Molar Mass"
 
     # ── 7. STEM: MATHEMATICS ──────────────────────────────────────
     elif detected_subject == "Mathematics":
-        if any(w in q_low for w in ["scalar triple", "vector triple", "cross product", "dot product", "coplanar", "colinear", "unit vector"]):
+        if any(w in q_low for w in ["scalar triple", "vector triple", "cross product", "dot product", "coplanar", "colinear", "unit vector", "plane in 3d", "skew lines"]):
             return "Mathematics", "Vectors & 3D Geometry", "Scalar & Vector Triple Product"
         if any(w in q_low for w in ["differential equation", "dy/dx", "integrating factor", "order and degree"]):
             return "Mathematics", "Integral Calculus", "Differential Equations"
-        if any(w in q_low for w in ["integral", "integrate", "definite integral", "area under", "area between"]):
+        if any(w in q_low for w in ["integral", "integrate", "definite integral", "area under", "area between", "area bounded"]):
             return "Mathematics", "Integral Calculus", "Definite Integrals & Properties"
-        if any(w in q_low for w in ["maxima", "minima", "tangent and normal", "monoton", "derivative", "differentiab"]):
-            return "Mathematics", "Differential Calculus", "Monotonicity & Extrema (Maxima/Minima)"
-        if any(w in q_low for w in ["matrix", "determinant", "cramer", "adjoint", "inverse of matrix"]):
+        if any(w in q_low for w in ["maxima", "minima", "tangent and normal", "monoton", "derivative", "differentiab", "limits", "continuity"]):
+            return "Mathematics", "Differential Calculus", "Limits, Continuity & Differentiability" if "limit" in q_low else "Monotonicity & Extrema (Maxima/Minima)"
+        if any(w in q_low for w in ["matrix", "matrices", "determinant", "cramer", "adjoint", "inverse of matrix"]):
             return "Mathematics", "Matrices & Determinants", "Properties of Determinants"
-        if any(w in q_low for w in ["circle", "parabola", "ellipse", "hyperbola", "eccentricity", "tangent to the"]):
-            return "Mathematics", "Coordinate Geometry", "Circles & Tangents"
-        if any(w in q_low for w in ["straight line", "slope", "intercept", "parallel", "perpendicular"]):
+        if any(w in q_low for w in ["circle", "parabola", "ellipse", "hyperbola", "eccentricity", "tangent to circle", "conic"]):
+            return "Mathematics", "Coordinate Geometry", "Parabola" if "parabola" in q_low else ("Ellipse" if "ellipse" in q_low else ("Hyperbola" if "hyperbola" in q_low else "Circles & Tangents"))
+        if any(w in q_low for w in ["straight line", "slope", "intercept", "parallel lines", "perpendicular"]):
             return "Mathematics", "Coordinate Geometry", "Straight Lines & Slopes"
-        if any(w in q_low for w in ["complex number", "modulus", "argument", "roots of unity"]):
+        if any(w in q_low for w in ["complex number", "modulus", "argument", "roots of unity", "argand"]):
             return "Mathematics", "Number Systems & Basic Algebra", "Complex Numbers"
-        if any(w in q_low for w in ["quadratic", "roots of", "discriminant"]):
+        if any(w in q_low for w in ["quadratic", "roots of", "discriminant", "real roots"]):
             return "Mathematics", "Number Systems & Basic Algebra", "Quadratic Equations"
-        if any(w in q_low for w in ["arithmetic progression", "ap", "gp", "geometric progression", "hp", "sequence", "series"]):
-            return "Mathematics", "Sequences & Series", "Arithmetic Progression (AP)"
+        if any(w in q_low for w in ["arithmetic progression", "ap", "gp", "geometric progression", "hp", "sequence", "series", "special series"]):
+            return "Mathematics", "Sequences & Series", "Arithmetic Progression (AP)" if "ap" in q_low else "Geometric Progression (GP)"
         if any(w in q_low for w in ["permutation", "combination", "ncr", "npr", "ways can"]):
             return "Mathematics", "Permutations, Combinations & Probability", "Permutations & Combinations"
-        if any(w in q_low for w in ["probability", "bayes", "conditional probability"]):
+        if any(w in q_low for w in ["probability", "bayes", "conditional probability", "random variable"]):
             return "Mathematics", "Permutations, Combinations & Probability", "Conditional Probability & Bayes' Theorem"
         if any(w in q_low for w in ["binomial", "expansion", "middle term", "binomial coefficient"]):
             return "Mathematics", "Binomial Theorem", "Binomial Expansion & General Term"
-        if any(w in q_low for w in ["trigonometr", "sin", "cos", "tan", "height and distance"]):
+        if any(w in q_low for w in ["trigonometr", "sin", "cos", "tan", "cot", "sec", "cosec", "height and distance"]):
             return "Mathematics", "Trigonometry", "Trigonometric Ratios & Identities"
+        if any(w in q_low for w in ["sets", "relation", "function", "domain", "range", "injective", "surjective"]):
+            return "Mathematics", "Number Systems & Basic Algebra", "Sets, Relations & Functions"
 
         return "Mathematics", "Number Systems & Basic Algebra", "Quadratic Equations"
 
-    # ── 8. GENERAL KNOWLEDGE ──────────────────────────────────────
-    elif detected_subject == "General Knowledge":
-        if any(w in q_low for w in ["district", "reorganization", "division", "cabinet", "minister", "chief", "balotra", "udaipur"]):
-            return "Current Affairs & Polity", "Current Affairs & Polity", "Rajasthan District Reorganization" if "district" in q_low else "Administrative Divisions of Rajasthan"
-        if any(w in q_low for w in ["sanctuary", "chittorgarh", "shergarh", "gogelav", "dholpur", "tiger reserve", "leopard", "wild ass", "conservation reserve"]):
-            return "Static GK & Geography", "Geography & Environment", "Wildlife Sanctuaries of Rajasthan" if "sanctuary" in q_low else ("Tiger Reserves of Rajasthan" if "tiger" in q_low else "Conservation Reserves of Rajasthan")
-        return "Static GK & Geography", "Geography & Environment", "General Geography & Environment"
-
-    # ── 9. STEM: BIOLOGY ──────────────────────────────────────────
+    # ── 8. STEM: BIOLOGY ──────────────────────────────────────────
     elif detected_subject == "Biology":
         if any(w in q_low for w in ["animal", "phylum", "nephron", "heart", "blood", "circulation", "neuron", "brain", "hormone", "digestion", "reproduction", "embryo", "evolution", "immunity", "disease", "biotechnology"]):
             return "Zoology", "Human Physiology", "Human Physiology"
         return "Botany", "Plant Diversity & Classification", "Plant Diversity & Classification"
 
     return detected_sub_subject, "Core Chapter", "Standard Coaching Topic"
-
+def is_instruction_cover_page(page_text: str) -> bool:
+    pt_upper = page_text.upper()
+    is_instructions = any(h in pt_upper for h in ["IMPORTANT INSTRUCTIONS", "GENERAL INSTRUCTIONS", "MARKING SCHEME", "MAX. MARKS", "MAX MARKS", "OMR ANSWER SHEET"])
+    has_mcq_options = bool(re.search(r'\([1A]\).*\([2B]\)', page_text, re.DOTALL))
+    return is_instructions and not has_mcq_options
 
 def extract_clean_answer_keys(full_text: str, total_q: int, doc: Optional[pymupdf.Document] = None) -> Dict[int, str]:
     """
@@ -1340,6 +1332,8 @@ async def analyze_pdf_document(pdf_bytes: bytes, filename: str, api_key: Optiona
     for p_idx, pt in enumerate(pages_text):
         if re.search(r'(?:ANSWER\s*KEY|Answer\s*Key)', pt, re.IGNORECASE) and p_idx >= len(pages_text) - 2:
             pass
+        elif is_instruction_cover_page(pt) and p_idx == 0:
+            pass
         else:
             exam_pages.append(pt)
 
@@ -1437,14 +1431,17 @@ async def analyze_pdf_document(pdf_bytes: bytes, filename: str, api_key: Optiona
         subj = eq["subject"]
         sub_sub = eq["sub_subject"]
 
-        # 1. Primary Classification from Question Content (Zero heading dependency)
-        content_subj, content_sub_sub = detect_subject_from_text(q_text)
-        if content_subj and content_subj != "General":
-            subj = content_subj
-            sub_sub = content_sub_sub
-        elif not subj or subj == "General":
-            subj = "General"
-            sub_sub = "General"
+        # 1. Enforce Sequential Subject Architecture
+        # If subject was detected from section header, preserve it strictly (no intermixing)
+        # If subject is General (no header in paper), classify from question content
+        if not subj or subj == "General":
+            content_subj, content_sub_sub = detect_subject_from_text(q_text)
+            if content_subj and content_subj != "General":
+                subj = content_subj
+                sub_sub = content_sub_sub
+            else:
+                subj = "Mathematics"
+                sub_sub = "Mathematics"
 
         final_sub_sub, ch_name, top_name = classify_question_taxonomy(q_text, subj, sub_sub)
 
