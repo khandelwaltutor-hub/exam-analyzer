@@ -1382,22 +1382,23 @@ async def analyze_pdf_document(pdf_bytes: bytes, filename: str, api_key: Optiona
 
     def detect_subject_in_line(line: str) -> Tuple[Optional[str], Optional[str]]:
         l_raw = line.strip()
-        l_upper = l_raw.upper().strip("()[]{} -–:.\t")
-        if len(l_raw) >= 60:
-            return None, None
-        if any(k in l_upper for k in ["CONTAIN", "CONSIST", "MARKS", "MINUTE", "HOUR", "TOTAL", "ALLOWED", "INSTRUCTION", "SESSION", "GRADE", "DATE", "CODE", "SET", "NEGATIVE", "PART-", "PART -"]):
-            return None, None
-
-        if re.search(r'\bRT[\s\-–]+\d+\s+VA\b', l_upper) or re.search(r'\b(?:VERBAL\s*ABILITY|READING\s*COMPREHENSION|ENGLISH)\b', l_upper) or l_upper == 'VA':
+        l_clean = re.sub(r'\(Date:[^)]*\)', '', l_raw, flags=re.IGNORECASE).strip()
+        l_upper = l_clean.upper().strip("()[]{} -–:.\t")
+        
+        # 1. Direct High-Confidence Header Signals
+        if re.search(r'\b(?:RT[\s\-–]*\d+\s+VA|VERBAL\s*ABILITY|READING\s*COMPREHENSION|ENGLISH)\b', l_upper) or l_upper in ['VA', 'VERBAL ABILITY', 'SECTION - VA', 'PART - VA']:
             return 'Verbal Ability', 'Reading Comprehension'
-        if re.search(r'\bRT[\s\-–]+\d+\s+QA\b', l_upper) or re.search(r'\b(?:QUANTITATIVE\s*APTITUDE|QUANT\s*APTITUDE)\b', l_upper) or l_upper == 'QA':
+        if re.search(r'\b(?:RT[\s\-–]*\d+\s+QA|QUANTITATIVE\s*APTITUDE|QUANT\s*APTITUDE)\b', l_upper) or l_upper in ['QA', 'QUANTITATIVE APTITUDE', 'SECTION - QA', 'PART - QA']:
             return 'Quantitative Aptitude', 'Arithmetic'
-        if re.search(r'\bRT[\s\-–]+\d+\s+LR\b', l_upper) or re.search(r'\b(?:LOGICAL\s*REASONING|ANALYTICAL\s*REASONING)\b', l_upper) or l_upper in ['LR', 'LOGICAL REASONING']:
+        if re.search(r'\b(?:RT[\s\-–]*\d+\s+LR|LOGICAL\s*REASONING|ANALYTICAL\s*REASONING)\b', l_upper) or l_upper in ['LR', 'LOGICAL REASONING', 'SECTION - LR', 'PART - LR']:
             return 'Logical Reasoning', 'Analytical Reasoning'
-        if re.search(r'\bRT[\s\-–]+\d+\s+DI\b', l_upper) or re.search(r'\b(?:DATA\s*INTERPRETATION)\b', l_upper) or l_upper == 'DI':
+        if re.search(r'\b(?:RT[\s\-–]*\d+\s+DI|DATA\s*INTERPRETATION)\b', l_upper) or l_upper in ['DI', 'DATA INTERPRETATION', 'SECTION - DI', 'PART - DI']:
             return 'Data Interpretation', 'Data Interpretation'
-        if re.search(r'\b(?:GENERAL\s*KNOWLEDGE|GENERAL\s*AWARENESS|CURRENT\s*AFFAIRS)\b', l_upper) or l_upper in ['GK', 'GA']:
+        if re.search(r'\b(?:GENERAL\s*KNOWLEDGE|GENERAL\s*AWARENESS|CURRENT\s*AFFAIRS)\b', l_upper) or l_upper in ['GK', 'GA', 'GENERAL KNOWLEDGE']:
             return 'General Knowledge', 'General Awareness'
+
+        if len(l_raw) >= 60 or any(k in l_upper for k in ["CONTAIN", "CONSIST", "MARKS", "MINUTE", "HOUR", "TOTAL", "ALLOWED", "INSTRUCTION", "SESSION", "NEGATIVE", "PART-", "PART -"]):
+            return None, None
 
         if re.search(r'\b(MATHEMATICS|MATHEMATCS|MATHS|MATH)\b', l_upper):
             return 'Mathematics', 'Mathematics'
@@ -1507,7 +1508,7 @@ async def analyze_pdf_document(pdf_bytes: bytes, filename: str, api_key: Optiona
         raw_subjects = []
         for eq in extracted_questions:
             s, _ = detect_subject_from_text(eq["text"])
-            raw_subjects.append(s if s else "Mathematics")
+            raw_subjects.append(s if s and s != "General" else "General")
         
         blocks = dynamic_sequential_block_segmentation(raw_subjects, min_block_size=4)
         for s, sq, eq_idx in blocks:
