@@ -219,19 +219,20 @@ def detect_subject_from_text(text: str) -> Tuple[str, str]:
 
     # 5. Aptitude Features
     qa_patterns = [
-        r'\b(?:cost price|selling price|profit|loss|discount|simple interest|compound interest|pipes and cistern|time and work|upstream|downstream)\b',
-        r'\b(?:train crosses|mixture and alligation|ratio of boys|average age|clock angle|calendar|speed of boat)\b'
+        r'\b(?:cost price|selling price|profit|loss|discount|interest|simple interest|compound interest|time and work|speed|distance|ratio|ratios|divided in the ratio|mixture|alligation|average|average age|clock|hands of a clock|upstream|downstream|train|kmph|km/h|contractor|men and|women finish|hcf|lcm|divisible by|remainder|digits|sum of digits|rhombus|cone|conical|cylinder|sphere|perimeter|area of|volume|circumference|partner|business|invest|investment|rent|percent|percentage|marks in an examination|flat race|in an election|population of)\b'
     ]
     for p in qa_patterns:
-        scores["Quantitative Aptitude"] += len(re.findall(p, t_low)) * 3
+        scores["Quantitative Aptitude"] += len(re.findall(p, t_low)) * 4
 
-    # 6. Verbal & Logical
-    if any(k in t_low for k in ["synonym", "antonym", "idiom", "passage", "grammatically", "spelling", "para jumble"]):
-        scores["Verbal Ability"] += 4
-    if any(k in t_low for k in ["blood relation", "seating arrangement", "syllogism", "statement and conclusion", "direction sense"]):
-        scores["Logical Reasoning"] += 4
-    if any(k in t_low for k in ["table chart", "bar graph", "pie chart", "theatres inox", "percent distribution"]):
-        scores["Data Interpretation"] += 4
+    # 6. Verbal & Logical Features
+    for w in ["passage", "author", "central idea", "idiom", "synonym", "antonym", "grammatical", "spelling", "sentence", "preposition", "adjective", "verb", "passive voice", "active voice", "fill in the blank", "meaningful sentence", "error", "underlined", "para jumble", "analogy", "analogies"]:
+        if w in t_low: scores["Verbal Ability"] += 4
+
+    for w in ["seating", "blood relation", "brother of", "sister of", "daughter has", "direction sense", "walks 10 m", "towards the south", "towards the north", "mirror image", "cube", "dice", "series", "coding", "syllogism", "statement and conclusion", "conclusions logically follow", "pairs of letters", "arrange the given words", "ranks ahead", "class of 42", "tall men", "certain code", "odd term out", "alphabet series", "number series"]:
+        if w in t_low: scores["Logical Reasoning"] += 4
+
+    for w in ["bar chart", "pie chart", "line graph", "table chart", "study the graph", "study the following table", "diagram indicates the number", "percent distribution"]:
+        if w in t_low: scores["Data Interpretation"] += 5
 
     best_subj = max(scores, key=scores.get)
     if scores[best_subj] > 0:
@@ -1312,8 +1313,13 @@ def dynamic_sequential_block_segmentation(raw_subjects: List[str], min_block_siz
         if valid_counts:
             best_subj, best_count = max(valid_counts.items(), key=lambda x: x[1])
         else:
-            best_subj, best_count = "Mathematics", 0
-        mismatches = len(sub_list) - best_count
+            best_subj, best_count = "Quantitative Aptitude", 0
+        mismatches = 0
+        for s in sub_list:
+            if s == "General":
+                mismatches += 0.2
+            elif s != best_subj:
+                mismatches += 1.5
         return mismatches, best_subj
 
     best_overall_cost = float('inf')
@@ -1446,9 +1452,9 @@ async def analyze_pdf_document(pdf_bytes: bytes, filename: str, api_key: Optiona
                 current_sub_sub = new_sub_sub
                 headers_found.add(new_subj)
 
-            m_q = re.match(r'^(?:Q\.?\s*|Question\s*)?(\d{1,3})\s*[\.:\)\-]\s*(.*)$', line_s, re.IGNORECASE)
+            m_q = re.match(r'^(?:Question\s*|Q\.?\s*)(\d{1,3})(?:[\.:\)\-\s]|$)\s*(.*)$', line_s, re.IGNORECASE)
             if not m_q:
-                m_q = re.match(r'^(\d{1,3})[\.\)]\s+(.{5,})$', line_s)
+                m_q = re.match(r'^(\d{1,3})\s*[\.:\)\-]\s*(.*)$', line_s)
                 
             if m_q and int(m_q.group(1)) <= 300:
                 q_val = int(m_q.group(1))
