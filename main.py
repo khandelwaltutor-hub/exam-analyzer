@@ -489,12 +489,15 @@ def classify_question_taxonomy(q_text: str, detected_subject: str, detected_sub_
 
     return detected_sub_subject, "Core Chapter", "Standard Coaching Topic"
 def is_instruction_cover_page(page_text: str) -> bool:
+    # If page contains MCQ options (e.g. (1), (2), (3), (4) or (A), (B), (C), (D)), it is an active question page!
+    options_found = len(re.findall(r'(?:\([1-4A-Da-d]\)|\[[1-4A-Da-d]\]|\b[1-4A-Da-d][\.\)])\s+[A-Za-z0-9]', page_text))
+    has_q1 = bool(re.search(r'(?:^|\n)\s*(?:Q\.?\s*|Question\s*)?1\s*[\.:\)\-]\s+[A-Za-z]', page_text))
+    if has_q1 or options_found >= 4:
+        return False
     lines = [l.strip() for l in page_text.splitlines() if l.strip()]
     if not lines:
         return False
-    is_cover_header = any('TEOLER' in l.upper() or 'REVIEW TEST' in l.upper() or 'IMPORTANT INSTRUCTIONS' in l.upper() or 'MAX. MARKS' in l.upper() or 'MAX MARKS' in l.upper() for l in lines[:10])
-    has_subject_start = any(l.upper() in ['MATHEMATICS', 'PHYSICS', 'CHEMISTRY', 'BIOLOGY', 'BOTANY', 'ZOOLOGY', 'VERBAL ABILITY', 'QUANTITATIVE APTITUDE'] for l in lines[:3])
-    return is_cover_header and not has_subject_start
+    return any('IMPORTANT INSTRUCTIONS' in l.upper() or 'GENERAL INSTRUCTIONS' in l.upper() or 'CANDIDATE MUST' in l.upper() for l in lines[:10])
 
 def extract_clean_answer_keys(full_text: str, total_q: int, doc: Optional[pymupdf.Document] = None) -> Dict[int, str]:
     """
