@@ -489,15 +489,18 @@ def classify_question_taxonomy(q_text: str, detected_subject: str, detected_sub_
 
     return detected_sub_subject, "Core Chapter", "Standard Coaching Topic"
 def is_instruction_cover_page(page_text: str) -> bool:
-    # If page contains MCQ options (e.g. (1), (2), (3), (4) or (A), (B), (C), (D)), it is an active question page!
-    options_found = len(re.findall(r'(?:\([1-4A-Da-d]\)|\[[1-4A-Da-d]\]|\b[1-4A-Da-d][\.\)])\s+[A-Za-z0-9]', page_text))
-    has_q1 = bool(re.search(r'(?:^|\n)\s*(?:Q\.?\s*|Question\s*)?1\s*[\.:\)\-]\s+[A-Za-z]', page_text))
-    if has_q1 or options_found >= 4:
-        return False
     lines = [l.strip() for l in page_text.splitlines() if l.strip()]
     if not lines:
         return False
-    return any('IMPORTANT INSTRUCTIONS' in l.upper() or 'GENERAL INSTRUCTIONS' in l.upper() or 'CANDIDATE MUST' in l.upper() for l in lines[:10])
+    mcq_opt_count = 0
+    for l in lines:
+        if re.match(r'^(?:\([1-4A-Da-d]\)|\[[1-4A-Da-d]\]|[1-4A-Da-d][\.\)])\s+\S+', l):
+            mcq_opt_count += 1
+    is_cover_header = any(k in page_text.upper() for k in [
+        'IMPORTANT INSTRUCTIONS', 'GENERAL INSTRUCTIONS', 'TIME 3 HOURS', 'TIME ALLOWED: 3',
+        'MAX. MARKS', 'MAX MARKS', 'CONSISTS OF 3 PARTS', 'CONSISTS OF THREE PARTS'
+    ])
+    return is_cover_header and mcq_opt_count < 2
 
 def extract_clean_answer_keys(full_text: str, total_q: int, doc: Optional[pymupdf.Document] = None) -> Dict[int, str]:
     """
@@ -1380,9 +1383,9 @@ async def analyze_pdf_document(pdf_bytes: bytes, filename: str, api_key: Optiona
     def detect_subject_in_line(line: str) -> Tuple[Optional[str], Optional[str]]:
         l_raw = line.strip()
         l_upper = l_raw.upper().strip("()[]{} -–:.\t")
-        is_header_line = len(l_raw) < 90
-
-        if not is_header_line:
+        if len(l_raw) >= 60:
+            return None, None
+        if any(k in l_upper for k in ["CONTAIN", "CONSIST", "MARKS", "MINUTE", "HOUR", "TOTAL", "ALLOWED", "INSTRUCTION", "SESSION", "GRADE", "DATE", "CODE", "SET", "NEGATIVE", "PART-", "PART -"]):
             return None, None
 
         if re.search(r'\bRT[\s\-–]+\d+\s+VA\b', l_upper) or re.search(r'\b(?:VERBAL\s*ABILITY|READING\s*COMPREHENSION|ENGLISH)\b', l_upper) or l_upper == 'VA':
@@ -1396,17 +1399,17 @@ async def analyze_pdf_document(pdf_bytes: bytes, filename: str, api_key: Optiona
         if re.search(r'\b(?:GENERAL\s*KNOWLEDGE|GENERAL\s*AWARENESS|CURRENT\s*AFFAIRS)\b', l_upper) or l_upper in ['GK', 'GA']:
             return 'General Knowledge', 'General Awareness'
 
-        if re.search(r'\b(MATHEMATICS|MATHEMATCS|MATHS|MATH)\b', l_upper) and not re.search(r'(STUDY|CALCULATE|WHICH|FOLLOWING|OBTAINED|CONTAINS|CONSISTS)', l_upper):
+        if re.search(r'\b(MATHEMATICS|MATHEMATCS|MATHS|MATH)\b', l_upper):
             return 'Mathematics', 'Mathematics'
-        if re.search(r'\bPHYSICS\b', l_upper) and not re.search(r'(STUDY|CALCULATE|WHICH|FOLLOWING|OBTAINED|CONTAINS|CONSISTS)', l_upper):
+        if re.search(r'\bPHYSICS\b', l_upper):
             return 'Physics', 'Physics'
-        if re.search(r'\bCHEMISTRY\b', l_upper) and not re.search(r'(STUDY|CALCULATE|WHICH|FOLLOWING|OBTAINED|CONTAINS|CONSISTS)', l_upper):
+        if re.search(r'\bCHEMISTRY\b', l_upper):
             return 'Chemistry', 'PC'
-        if re.search(r'\b(BOTANY|PLANT)\b', l_upper) and not re.search(r'(STUDY|CALCULATE|WHICH|FOLLOWING|OBTAINED|CONTAINS|CONSISTS)', l_upper):
+        if re.search(r'\b(BOTANY|PLANT)\b', l_upper):
             return 'Biology', 'Botany'
-        if re.search(r'\b(ZOOLOGY|ANIMAL)\b', l_upper) and not re.search(r'(STUDY|CALCULATE|WHICH|FOLLOWING|OBTAINED|CONTAINS|CONSISTS)', l_upper):
+        if re.search(r'\b(ZOOLOGY|ANIMAL)\b', l_upper):
             return 'Biology', 'Zoology'
-        if re.search(r'\bBIOLOGY\b', l_upper) and not re.search(r'(STUDY|CALCULATE|WHICH|FOLLOWING|OBTAINED|CONTAINS|CONSISTS)', l_upper):
+        if re.search(r'\bBIOLOGY\b', l_upper):
             return 'Biology', 'Botany'
 
         return None, None
