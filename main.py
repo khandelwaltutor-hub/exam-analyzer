@@ -253,85 +253,116 @@ def classify_question_taxonomy(q_text: str, detected_subject: str, detected_sub_
 
     # ── 1. VERBAL ABILITY ──────────────────────────────────────────
     if detected_subject == "Verbal Ability":
-        if any(w in q_low for w in ["passage", "author", "infer", "primary purpose", "according to the text", "metaphor", "central idea", "tone of the", "weaken", "strengthen", "assumption"]):
-            if "purpose" in q_low:
-                return "Reading Comprehension", "Reading Comprehension", "Primary Purpose of Passage"
-            if "infer" in q_low or "implies" in q_low or "inference" in q_low:
-                return "Reading Comprehension", "Reading Comprehension", "Inference & Deduction"
-            if any(k in q_low for k in ["weaken", "assume", "assumption", "least likely"]):
-                return "Reading Comprehension", "Reading Comprehension", "Argument Evaluation & Assumptions"
-            return "Reading Comprehension", "Reading Comprehension", "Central Idea & Theme"
+        if any(w in q_low for w in ["passage", "author", "infer", "primary purpose", "according to the text", "metaphor", "central idea", "tone of", "weaken", "strengthen", "narrator", "passage states", "based on the text", "in the passage", "paragraph", "cited as", "why do", "the text", "summarizes"]):
+            if "purpose" in q_low or "primary" in q_low or "objective" in q_low:
+                return "Reading Comprehension", "Reading Comprehension", "Primary Purpose & Main Theme"
+            if "infer" in q_low or "implies" in q_low or "inference" in q_low or "suggests" in q_low:
+                return "Reading Comprehension", "Reading Comprehension", "Inference & Logical Deduction"
+            if any(k in q_low for k in ["weaken", "strengthen", "assume", "assumption", "flaw"]):
+                return "Reading Comprehension", "Critical Reasoning in RC", "Argument Analysis & Assumptions"
+            if "tone" in q_low or "attitude" in q_low or "style" in q_low:
+                return "Reading Comprehension", "Reading Comprehension", "Tone, Style & Author Perspective"
+            return "Reading Comprehension", "Reading Comprehension", "Detail & Fact Comprehension"
 
-        if any(w in q_low for w in ["arrange the following", "logical order", "coherent paragraph", "sentence arrangement", "para jumble"]):
-            return "Verbal Logic", "Verbal Reasoning & Para Jumbles", "Para Jumbles & Sentence Ordering"
+        if any(w in q_low for w in ["arrange the following", "logical order", "coherent paragraph", "sentence arrangement", "para jumble", "jumbled", "p, q, r", "rearrange", "sentence ordering"]):
+            return "Verbal Logic", "Para Jumbles & Sentence Rearrangement", "Paragraph Ordering & Coherence"
+            
+        if any(w in q_low for w in ["odd sentence", "out of context", "does not fit"]):
+            return "Verbal Logic", "Critical Reasoning & Logic", "Odd Sentence Out"
 
-        if any(w in q_low for w in ["active voice", "passive voice"]):
-            return "Grammar", "Grammar & Sentence Structure", "Active & Passive Voice"
-        if any(w in q_low for w in ["direct speech", "indirect speech", "reported speech", "said,", "asked the"]):
-            return "Grammar", "Grammar & Sentence Structure", "Direct & Indirect Speech"
-        if any(w in q_low for w in ["punctuation", "semicolon", "comma", "exclamation", "question mark"]):
-            return "Grammar", "Grammar & Sentence Structure", "Punctuation Rules"
-        if any(w in q_low for w in ["grammatically", "grammatical", "pronoun", "adjective", "adverb", "preposition", "error spotting", "sentence correction"]):
-            return "Grammar", "Grammar & Sentence Structure", "Sentence Correction & Error Spotting"
-        if any(w in q_low for w in ["spelling", "correct spelling"]):
-            return "Vocabulary", "Vocabulary & Word Usage", "Spelling Accuracy"
-        if any(w in q_low for w in ["substitute for", "one word substitution", "one word"]):
-            return "Vocabulary", "Vocabulary & Word Usage", "One-Word Substitution"
-        if any(w in q_low for w in ["meaning of the phrase", "idiom", "phrasal verb"]):
-            return "Vocabulary", "Vocabulary & Word Usage", "Idioms & Phrasal Verbs"
-        if any(w in q_low for w in ["closest in meaning", "synonym", "antonym", "opposite in meaning"]):
-            return "Vocabulary", "Vocabulary & Word Usage", "Synonyms & Antonyms"
-        if any(w in q_low for w in ["fill in the blank", "complete the sentence"]):
-            return "Vocabulary", "Vocabulary & Word Usage", "Sentence Completion & Fill in Blanks"
+        if any(w in q_low for w in ["active voice", "passive voice", "voice of the sentence"]):
+            return "Grammar", "Grammar & Sentence Correction", "Active & Passive Voice Transformation"
+        if any(w in q_low for w in ["direct speech", "indirect speech", "reported speech"]):
+            return "Grammar", "Grammar & Sentence Correction", "Direct & Indirect Speech"
+        if any(w in q_low for w in ["preposition", "prepositions"]):
+            return "Grammar", "Grammar & Sentence Correction", "Prepositions & Phrasal Usage"
+        if any(w in q_low for w in ["subject-verb", "subject verb", "agreement", "singular", "plural"]):
+            return "Grammar", "Grammar & Sentence Correction", "Subject-Verb Agreement"
+        if any(w in q_low for w in ["grammatically", "grammatical", "error", "underlined", "spotting the error", "sentence correction"]):
+            return "Grammar", "Grammar & Sentence Correction", "Error Spotting & Sentence Correction"
 
-        return "Grammar", "Grammar & Sentence Structure", "Sentence Correction & Error Spotting"
+        if any(w in q_low for w in ["closest in meaning", "synonym", "same meaning"]):
+            return "Vocabulary", "Vocabulary & Lexicon", "Synonyms & Contextual Meaning"
+        if any(w in q_low for w in ["opposite in meaning", "antonym", "most opposite"]):
+            return "Vocabulary", "Vocabulary & Lexicon", "Antonyms & Contrast"
+        if any(w in q_low for w in ["one word", "substitution"]):
+            return "Vocabulary", "Vocabulary & Lexicon", "One-Word Substitution"
+        if any(w in q_low for w in ["idiom", "phrase", "phrasal verb", "proverb"]):
+            return "Vocabulary", "Vocabulary & Lexicon", "Idioms & Phrasal Expressions"
+        if any(w in q_low for w in ["fill in the blank", "blanks", "completion"]):
+            return "Vocabulary", "Vocabulary & Lexicon", "Sentence Completion & Fillers"
+        if any(w in q_low for w in ["spelling", "correctly spelt", "misspelt"]):
+            return "Vocabulary", "Vocabulary & Lexicon", "Spelling Accuracy"
+
+        return "Grammar", "Grammar & Sentence Correction", "Error Spotting & Usage"
 
     # ── 2. QUANTITATIVE APTITUDE ──────────────────────────────────
     elif detected_subject == "Quantitative Aptitude":
-        if any(w in q_low for w in ["bar chart", "table chart", "pie chart", "line graph", "data given", "viewers", "tabular"]):
-            return "Data Interpretation", "Chart & Graph Interpretation", "Bar Charts & Stacked Bars" if "bar" in q_low else "Data Tables & Multi-Table Analysis"
+        # Data Interpretation
+        if any(w in q_low for w in ["bar chart", "table chart", "pie chart", "line graph", "data given", "viewers", "tabular", "diagram indicates", "the graph"]):
+            return "Data Interpretation", "Data Interpretation & Analysis", "Data Tables & Graphical Analysis"
 
-        if any(w in q_low for w in ["circular table", "seated around", "permutation", "combination", "ncr", "npr", "ways can"]):
-            return "Modern Mathematics", "Modern Mathematics", "Permutations & Combinations"
-        if any(w in q_low for w in ["venn diagram", "set theory", "study mathematics", "three subjects"]):
-            return "Modern Mathematics", "Modern Mathematics", "Set Theory & Venn Diagrams"
-        if any(w in q_low for w in ["tangent", "secant", "circumference", "radius of circle", "circle", "chord"]):
-            return "Geometry & Mensuration", "Geometry & Mensuration", "Circles, Tangents & Secants"
-        if any(w in q_low for w in ["angle bisector", "triangle", "hypotenuse", "pythagoras", "similarity"]):
-            return "Geometry & Mensuration", "Geometry & Mensuration", "Angle Bisector & Similarity"
-        if any(w in q_low for w in ["cone", "cylinder", "sphere", "cuboid", "volume", "curved surface area", "mensuration"]):
-            return "Geometry & Mensuration", "Geometry & Mensuration", "3D Mensuration (Volume & Surface Area)"
+        # Modern Math / Combinatorics
+        if any(w in q_low for w in ["permutation", "combination", "ncr", "npr", "ways can", "arranged", "ordered pairs", "tournament", "knockout", "seeded"]):
+            return "Modern Mathematics", "Permutations & Combinations", "Combinatorics & Arrangements"
+        if any(w in q_low for w in ["probability", "dice", "cards", "coin", "randomly chosen", "favourable"]):
+            return "Modern Mathematics", "Probability", "Classical & Conditional Probability"
+        if any(w in q_low for w in ["venn diagram", "set theory", "sets", "cohort", "study exactly one", "exactly two", "neither"]):
+            return "Modern Mathematics", "Set Theory & Venn Diagrams", "Set Operations & 3-Set Venn Diagrams"
 
-        if any(w in q_low for w in ["logarithm", "log3", "log9", "log27", "log("]):
-            return "Algebra", "Algebraic Expressions & Equations", "Logarithms & Properties"
-        if any(w in q_low for w in ["geometric progression", " gp ", "common ratio"]):
-            return "Algebra", "Algebraic Expressions & Equations", "Progressions (AP, GP, HP)"
-        if any(w in q_low for w in ["arithmetic progression", " ap ", "common difference"]):
-            return "Algebra", "Algebraic Expressions & Equations", "Progressions (AP, GP, HP)"
-        if any(w in q_low for w in ["roots of quadratic", "quadratic equation", "discriminant"]):
-            return "Algebra", "Algebraic Expressions & Equations", "Quadratic Equations & Roots"
-        if any(w in q_low for w in ["linear equation", "system of equations", "simultaneous equations"]):
-            return "Algebra", "Algebraic Expressions & Equations", "Linear Equations (Single & Multi-Variable)"
-        if any(w in q_low for w in ["surd", "indices", "simplification"]):
-            return "Number System", "Number Systems & Properties", "Surds, Indices & Simplification"
-        if any(w in q_low for w in ["remainder", "divided by", "divisible by"]):
-            return "Number System", "Number Systems & Properties", "Remainders & Cyclicity"
-        if any(w in q_low for w in ["factors", "hcf", "lcm", "prime factorisation"]):
-            return "Number System", "Number Systems & Properties", "Divisibility Rules & Factors"
+        # Matrices & Determinants
+        if any(w in q_low for w in ["matrix", "matrices", "determinant", "det(", "bmatrix", "adjoint", "eigen"]):
+            return "Higher Algebra", "Matrices & Determinants", "Matrix Operations & Determinants"
+
+        # Calculus & Functions
+        if any(w in q_low for w in ["function", "f(x)", "g(x)", "continuous", "differentiable", "functional equation", "limit", "limits"]):
+            return "Calculus & Functions", "Functions & Relations", "Functional Equations & Properties"
+        if any(w in q_low for w in ["derivative", "dy/dx", "integral", "integration", "area bounded", "maxima", "minima"]):
+            return "Calculus & Functions", "Differential & Integral Calculus", "Calculus Applications"
+
+        # Coordinate Geometry & Conics
+        if any(w in q_low for w in ["straight line", "slope", "intercept", "image of", "reflection", "collinear", "parallelogram", "coordinates"]):
+            return "Coordinate Geometry", "Straight Lines & 2D Coordinate Geometry", "Lines, Images & Coordinate Areas"
+        if any(w in q_low for w in ["circle", "tangent", "secant", "chord", "concentric", "radius", "trapezoid"]):
+            return "Geometry & Mensuration", "Circles & Polygon Geometry", "Circles, Tangents & Inscribed Polygons"
+        if any(w in q_low for w in ["triangle", "angle bisector", "altitude", "median", "similar", "congruent", "pythagoras"]):
+            return "Geometry & Mensuration", "Triangles & Geometric Properties", "Triangles & Angle Bisectors"
+        if any(w in q_low for w in ["cone", "cylinder", "sphere", "cuboid", "cube", "volume", "surface area", "mensuration"]):
+            return "Geometry & Mensuration", "3D Mensuration", "Volume & Surface Area of Solids"
+
+        # Algebra: Logarithms, Polynomials, Equations
+        if any(w in q_low for w in ["logarithm", "log2", "log3", "log10", "log(", "\\log"]):
+            return "Algebra", "Logarithms & Exponents", "Logarithmic Identities & Equations"
+        if any(w in q_low for w in ["modulus", "absolute value", "nested absolute", "|x", "inequality", "inequalities"]):
+            return "Algebra", "Inequalities & Absolute Value", "Modulus Equations & Inequalities"
+        if any(w in q_low for w in ["cubic", "polynomial", "vieta", "monic", "quartic", "roots of the cubic", "roots of polynomial"]):
+            return "Algebra", "Theory of Equations & Polynomials", "Polynomial Roots & Vieta's Relations"
+        if any(w in q_low for w in ["quadratic", "roots of", "discriminant", "alpha, beta"]):
+            return "Algebra", "Quadratic Equations", "Roots, Discriminants & Formation"
+        if any(w in q_low for w in ["arithmetico-geometric", "agp", "geometric progression", " gp ", "arithmetic progression", " ap ", "telescoping", "sum of series", "\\sum"]):
+            return "Algebra", "Sequences & Series", "Progressions (AP, GP, AGP & Special Series)"
+
+        # Number Systems
+        if any(w in q_low for w in ["remainder", "divided by", "divisible by", "cyclicity", "unit digit", "divisors", "factors", "prime factors", "hcf", "lcm", "positive integers", "gcd"]):
+            return "Number System", "Number Systems & Number Theory", "Divisibility, Factors & Remainders"
+
+        # Commercial Arithmetic & Word Problems
+        if any(w in q_low for w in ["days", "hours", "work together", "alternate days", "craftsman", "apprentice", "contractor", "men", "women", "efficiency", "pipes", "cistern"]):
+            return "Arithmetic", "Time & Work", "Time & Work (Efficiency & Alternate Days)"
+        if any(w in q_low for w in ["speed", "distance", "train", "upstream", "downstream", "boat", "kmph", "km/h", "race", "relative speed"]):
+            return "Arithmetic", "Time, Speed & Distance", "Trains, Boats & Relative Speed"
         if any(w in q_low for w in ["cost price", "selling price", "profit", "loss", "discount", "marked price"]):
-            return "Commercial Arithmetic", "Commercial Arithmetic", "Profit, Loss & Discount"
-        if any(w in q_low for w in ["simple interest", "compound interest", "per annum", "compounded"]):
-            return "Commercial Arithmetic", "Commercial Arithmetic", "Simple & Compound Interest"
-        if any(w in q_low for w in ["time and work", "pipes and cistern", "tank", "efficiency"]):
-            return "Speed, Time & Work", "Speed, Time & Work", "Time & Work"
-        if any(w in q_low for w in ["speed", "distance", "train", "upstream", "downstream", "boat", "km/hr"]):
-            return "Speed, Time & Work", "Speed, Time & Work", "Time, Speed & Distance"
-        if any(w in q_low for w in ["ratio", "proportion", "mixture", "alligation", "partnership"]):
-            return "Commercial Arithmetic", "Commercial Arithmetic", "Ratio, Proportion & Variation"
-        if any(w in q_low for w in ["average", "ages", "mean of"]):
-            return "Averages & Mixtures", "Averages & Mixtures", "Averages & Weighted Averages"
+            return "Arithmetic", "Profit, Loss & Discount", "Profit, Loss, Discount & Margins"
+        if any(w in q_low for w in ["simple interest", "compound interest", "loan", "installment", "repaid", "per annum", "annuity"]):
+            return "Arithmetic", "Simple & Compound Interest", "Interest, Compounding & Installments"
+        if any(w in q_low for w in ["ratio", "proportion", "mixture", "alligation", "milk and water", "partnership", "investment", "shares"]):
+            return "Arithmetic", "Ratios, Mixtures & Partnership", "Ratio, Proportion, Mixtures & Partnership"
+        if any(w in q_low for w in ["average", "weighted average", "mean", "median", "mode", "variance", "observations", "ages"]):
+            return "Arithmetic", "Averages & Statistics", "Averages, Mixtures & Statistical Measures"
+        if any(w in q_low for w in ["percent", "percentage", "population", "election", "marks"]):
+            return "Arithmetic", "Percentages & Applications", "Percentage Changes & Population Problems"
 
-        return "Commercial Arithmetic", "Commercial Arithmetic", "Percentages & Applications"
+        return "Arithmetic", "Commercial Arithmetic", "Arithmetic Word Problems"
 
     # ── 3. LOGICAL REASONING ──────────────────────────────────────
     elif detected_subject == "Logical Reasoning":
