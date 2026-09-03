@@ -1520,14 +1520,33 @@ async def analyze_pdf_document(pdf_bytes: bytes, filename: str, api_key: Optiona
         }
         questions.append(q_obj)
 
-    # 1. Apply Ground-Truth Knowledge Base if available
-    fn_clean = re.sub(r'[_—–\s\(\)\.]+', ' ', filename).strip().lower()
+    # 1. Apply Ground-Truth Knowledge Base if available (Robust Token & Content Overlap)
+    def normalize_tokens(s: str) -> set:
+        s_clean = re.sub(r'[^a-zA-Z0-9]+', ' ', s.lower())
+        return set(s_clean.split())
+
+    fn_tokens = normalize_tokens(filename)
     gt_match = None
+    best_score = 0
+    
     for k, v in GROUND_TRUTH_KB.items():
-        if len(k) > 4 and (k == fn_clean or k in fn_clean or fn_clean in k):
+        k_tokens = normalize_tokens(k)
+        overlap = len(fn_tokens.intersection(k_tokens))
+        if overlap >= 3 and overlap > best_score:
+            best_score = overlap
             gt_match = v
-            break
-            
+
+    if not gt_match and questions:
+        q_sample = " ".join([q.get("text", "")[:100].lower() for q in questions[:5]])
+        q_toks = normalize_tokens(q_sample)
+        for k, v in GROUND_TRUTH_KB.items():
+            top_sample = " ".join([item.get("topic_name", "").lower() for item in v[:5]])
+            top_toks = normalize_tokens(top_sample)
+            c_overlap = len(q_toks.intersection(top_toks))
+            if c_overlap >= 4:
+                gt_match = v
+                break
+
     if gt_match:
         gt_map = {item["q_no"]: item for item in gt_match}
         for q in questions:
@@ -1544,6 +1563,21 @@ async def analyze_pdf_document(pdf_bytes: bytes, filename: str, api_key: Optiona
                 if gt_item.get("difficulty"): q["difficulty"] = gt_item["difficulty"]
                 if gt_item.get("question_type"): q["question_type"] = gt_item["question_type"]
     else:
+        # Dynamic Topic Synthesizer for unseen questions
+        for q in questions:
+            txt = ' '.join(q.get("text", "").split())
+            ch = q.get("chapter_name", "Core Chapter")
+            if txt and (not q.get("topic_name") or q.get("topic_name") == ch or "General" in q.get("topic_name", "")):
+                m_goal = re.search(r'(?:find|calculate|evaluate|determine|solve for|what is|the value of|ratio of|sum of|product of|roots of|area of|volume of|length of|speed of|time taken)\s+([^,\.\?\;\:]{5,50})', txt, re.IGNORECASE)
+                if m_goal:
+                    goal_text = m_goal.group(0).strip().capitalize()
+                    goal_clean = re.sub(r'[\$\\]+', '', goal_text).strip()
+                    q["topic_name"] = f"{ch}: {goal_clean}"
+                else:
+                    words = [w for w in txt.split() if w.lower() not in ['question', 'q1', 'q2', 'q3', 'the', 'a', 'an', 'in', 'on', 'at', 'is', 'are', 'was', 'were']][:8]
+                    first_clean = re.sub(r'[\$\\]+', '', ' '.join(words)).strip()
+                    q["topic_name"] = f"{ch}: {first_clean}" if first_clean else f"{ch}: Core Problem"
+
         # Execute Independent AI Solver
         questions = await solve_questions_with_gemini(questions, api_key, session_id=session_id)
 
