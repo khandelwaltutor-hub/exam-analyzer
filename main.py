@@ -1107,6 +1107,7 @@ async def solve_questions_with_gemini(
     """
     DELIBERATE INDEPENDENT AI SOLVER WITH LIVE PROGRESS TRACKING:
     Solves questions in paced 5-question micro-batches with multi-level verification.
+    Extracts Subject, Sub-Subject, NCERT Chapter Name, Topic Synopsis, and Verified Answer.
     """
     effective_api_key = api_key or os.environ.get("GEMINI_API_KEY") or os.environ.get("GOOGLE_API_KEY") or os.environ.get("GROQ_API_KEY") or os.environ.get("OPENAI_API_KEY")
     
@@ -1122,28 +1123,32 @@ async def solve_questions_with_gemini(
         if session_id and session_id in ANALYSIS_JOBS:
             pct = 20 + int((b_idx / total_q) * 70)
             ANALYSIS_JOBS[session_id]["progress"] = pct
-            ANALYSIS_JOBS[session_id]["step"] = f"Deeply solving Questions {q_start} to {q_end} of {total_q} with step-by-step proofs..."
+            ANALYSIS_JOBS[session_id]["step"] = f"AI solving Questions {q_start} to {q_end} of {total_q} with academic verification..."
 
         batch_solved = False
 
         if effective_api_key:
             prompt_items = []
             for q in batch:
-                q_text_sample = q.get("text", q.get("topic_name", ""))[:500]
+                q_text_sample = q.get("text", q.get("topic_name", ""))[:600]
                 prompt_items.append(
-                    f"Question {q['q_no']} [{q.get('subject','')} - {q.get('chapter_name','')}]:\n{q_text_sample}"
+                    f"Question {q['q_no']}:\n{q_text_sample}"
                 )
             
             prompt_text = (
-                "You are an academic exam solver and competitive taxonomy audit expert for JEE Main, NEET, and IPMAT.\n"
+                "You are an expert academic evaluator and competitive exam solver for JEE Main/Advanced, NEET, IPMAT, and Grade 11/12 assessments.\n"
                 "TASK FOR EACH QUESTION:\n"
-                "1. Identify the exact standard NCERT / IPMAT syllabus Chapter Name (e.g. 'Time & Work', 'Logarithms', 'Permutations & Combinations', 'Reading Comprehension', 'Rotational Motion', 'Chemical Kinetics', etc.).\n"
-                "2. Identify the specific Micro-Topic / Concept tested (e.g. 'Alternating Days & Fatigue Efficiency', 'Vieta\\'s Formulas', 'Primary Purpose & Inference').\n"
-                "3. Classify Difficulty as 'E' (Easy), 'M' (Medium), or 'D' (Difficult).\n"
-                "4. Estimate recommended Time in minutes (e.g. 1.5, 2.0, 2.5).\n"
-                "5. Solve independently from first principles and derive the exact answer and concise step-by-step proof.\n\n"
+                "1. Identify the exact Subject (Physics | Chemistry | Mathematics | Botany | Zoology | Biology | Quantitative Aptitude | Verbal Ability | Logical Reasoning | Data Interpretation).\n"
+                "2. Identify the exact Sub-Subject (e.g. Physics, Physical Chemistry, Organic Chemistry, Inorganic Chemistry, Botany, Zoology, QA - Arithmetic & Algebra, QA - Adv Math & Calculus, DI & Verbal Ability, Logical Reasoning).\n"
+                "3. Identify the exact standard NCERT / Master Syllabus Chapter Name (e.g. 'Electric Charges and Fields', 'Electrostatic Potential and Capacitance', 'Current Electricity', 'Chemical Kinetics', 'Differential Equations', 'Time, Speed, Distance & Work', 'Reading Comprehension (RC)', 'Vectors & 3D Geometry', etc.).\n"
+                "4. Identify the specific Topic Name (a precise mathematical/conceptual synopsis of the problem tested).\n"
+                "5. Classify Difficulty as 'E' (Easy), 'M' (Medium), or 'D' (Difficult).\n"
+                "6. Estimate recommended Time in minutes (e.g. 1.2, 1.5, 2.0).\n"
+                "7. Solve independently from first principles and derive the exact correct Option (1, 2, 3, 4, A, B, C, D, or Numeric Value) and concise step-by-step proof.\n\n"
                 "Return ONLY a valid JSON array of objects with exact keys:\n"
                 "  'q_no': int,\n"
+                "  'subject': str,\n"
+                "  'sub_subject': str,\n"
                 "  'chapter_name': str,\n"
                 "  'topic_name': str,\n"
                 "  'difficulty': str,\n"
@@ -1153,7 +1158,7 @@ async def solve_questions_with_gemini(
                 "Questions to process:\n" + "\n\n".join(prompt_items)
             )
 
-            models_cascade = ["gemini-2.5-flash", "gemini-2.0-flash", "gemini-1.5-flash"]
+            models_cascade = ["gemini-2.5-flash", "gemini-1.5-flash", "gemini-2.0-flash", "gemini-1.5-pro"]
             
             for model_name in models_cascade:
                 url = f"https://generativelanguage.googleapis.com/v1beta/models/{model_name}:generateContent?key={effective_api_key}"
@@ -1171,7 +1176,7 @@ async def solve_questions_with_gemini(
                         headers={"Content-Type": "application/json"}
                     )
                     loop = asyncio.get_event_loop()
-                    res = await loop.run_in_executor(None, lambda: urllib.request.urlopen(req, timeout=14))
+                    res = await loop.run_in_executor(None, lambda: urllib.request.urlopen(req, timeout=30))
                     data = json.loads(res.read())
                     content_text = data["candidates"][0]["content"]["parts"][0]["text"]
                     solved_batch = json.loads(content_text)
@@ -1184,6 +1189,8 @@ async def solve_questions_with_gemini(
                         t_ans = str(q.get("teacher_answer", "")).strip()
                         if qno in solved_map:
                             sol = solved_map[qno]
+                            if sol.get("subject"): q["subject"] = sol["subject"]
+                            if sol.get("sub_subject"): q["sub_subject"] = sol["sub_subject"]
                             if sol.get("chapter_name"): q["chapter_name"] = sol["chapter_name"]
                             if sol.get("topic_name"): q["topic_name"] = sol["topic_name"]
                             if sol.get("difficulty"): q["difficulty"] = sol["difficulty"]
@@ -1230,9 +1237,8 @@ async def solve_questions_with_gemini(
                     q["status"] = "MATCH"
                     q["reason_for_mismatch"] = "None"
 
-        # Deliberate pacing gap between 5-question micro-batches
         if b_idx + batch_size < total_q:
-            await asyncio.sleep(0.4)
+            await asyncio.sleep(0.3)
 
     return questions
 
@@ -1445,11 +1451,12 @@ async def analyze_pdf_document(pdf_bytes: bytes, filename: str, api_key: Optiona
     # Rule 1: If question paper explicitly mentioned section headers, propagate them monotonically
     # Rule 2: If headers are absent (or unlabelled), segment into contiguous sequential blocks from question content
     valid_headers = [eq["subject"] for eq in extracted_questions if eq.get("subject")]
+    distinct_headers = set(valid_headers)
     
-    if valid_headers:
-        first_valid_subj = valid_headers[0]
-        active_subj = first_valid_subj
-        active_sub_sub = "Mathematics"
+    if len(distinct_headers) >= 2:
+        # Multiple explicit section headers present in document
+        active_subj = valid_headers[0]
+        active_sub_sub = active_subj
         for eq in extracted_questions:
             if eq.get("subject"):
                 active_subj = eq["subject"]
@@ -1458,18 +1465,40 @@ async def analyze_pdf_document(pdf_bytes: bytes, filename: str, api_key: Optiona
                 eq["subject"] = active_subj
                 eq["sub_subject"] = active_sub_sub
     else:
-        # Zero-Heading Dynamic Sequential Content Segmentation
+        # Zero or Single-Header Paper: Determine Subject Content per question
         raw_subjects = []
         for eq in extracted_questions:
-            s, _ = detect_subject_from_text(eq["text"])
+            s = eq.get("subject")
+            if not s or s == "General":
+                s, _ = detect_subject_from_text(eq["text"])
             raw_subjects.append(s if s and s != "General" else "General")
         
-        blocks = dynamic_sequential_block_segmentation(raw_subjects, min_block_size=4)
-        for s, sq, eq_idx in blocks:
-            for idx in range(sq - 1, eq_idx):
-                if idx < len(extracted_questions):
-                    extracted_questions[idx]["subject"] = s
-                    extracted_questions[idx]["sub_subject"] = s
+        # Check if content has multiple distinct subjects
+        valid_raw = [s for s in raw_subjects if s != "General"]
+        distinct_content_subjects = set(valid_raw)
+        
+        if len(distinct_content_subjects) >= 2:
+            blocks = dynamic_sequential_block_segmentation(raw_subjects, min_block_size=4)
+            for s, sq, eq_idx in blocks:
+                for idx in range(sq - 1, eq_idx):
+                    if idx < len(extracted_questions):
+                        extracted_questions[idx]["subject"] = s
+                        extracted_questions[idx]["sub_subject"] = s
+        elif len(distinct_headers) == 1:
+            # Single-subject specialized paper (e.g. Physics Class Test)
+            dom_subj = list(distinct_headers)[0]
+            for eq in extracted_questions:
+                eq["subject"] = dom_subj
+                eq["sub_subject"] = dom_subj
+        elif len(distinct_content_subjects) == 1:
+            dom_subj = list(distinct_content_subjects)[0]
+            for eq in extracted_questions:
+                eq["subject"] = dom_subj
+                eq["sub_subject"] = dom_subj
+        else:
+            for eq in extracted_questions:
+                eq["subject"] = "General"
+                eq["sub_subject"] = "General"
 
     questions = []
     for idx, eq in enumerate(extracted_questions, 1):
