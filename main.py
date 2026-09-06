@@ -259,169 +259,436 @@ def detect_subject_from_text(text: str) -> Tuple[str, str]:
 
 def classify_question_taxonomy(q_text: str, detected_subject: str, detected_sub_subject: str) -> Tuple[str, str, str]:
     q_low = q_text.lower()
+    t_clean = ' '.join(re.sub(r'[^a-zA-Z0-9\s\+\-\*\/\=\^\(\)\.\,\%\:\;]', ' ', q_low).split())
+
+    # Helper to synthesize precise topic with question-level context
+    def format_topic(default_top: str) -> str:
+        txt = ' '.join(q_text.split())
+        m_goal = re.search(r'(?:find|calculate|evaluate|determine|solve for|what is|the value of|ratio of|sum of|product of|roots of|area of|volume of|length of|speed of|time taken|magnitude of|force on|direction of|stage do|explain the)\s+([^,\.\?\;\:]{5,60})', txt, re.IGNORECASE)
+        if m_goal:
+            goal_text = m_goal.group(0).strip()
+            goal_clean = re.sub(r'[\$\\\{\}]+', '', goal_text).strip()
+            if goal_clean:
+                goal_clean = goal_clean[0].upper() + goal_clean[1:]
+                return f"{default_top} ({goal_clean})"
+        return default_top
 
     # ── 1. MANAGEMENT APTITUDE (QA, LR, VA, DI) ──────────────────────
     if detected_subject in ["Quantitative Aptitude", "QA"]:
-        # Advanced Math & Calculus
-        if any(w in q_low for w in ["permutation", "combination", "ncr", "npr", "ways can", "probability", "bayes", "tournament", "knockout", "seeded"]):
-            return "QA - Adv Math & Calculus", "Permutations, Combinations & Probability", "Combinatorics, Permutations & Probability Theorems"
-        if any(w in q_low for w in ["venn diagram", "set theory", "sets", "cohort", "binomial", "coefficient", "remainder theorem for polynomial"]):
-            return "QA - Adv Math & Calculus", "Set Theory, Functions & Binomial Theorem", "Set Theory (Venn Diagrams) & Binomial Theorem"
-        if any(w in q_low for w in ["matrix", "matrices", "determinant", "det(", "bmatrix", "derivative", "dy/dx", "integral", "limit", "maxima", "minima"]):
-            return "QA - Adv Math & Calculus", "Matrices, Determinants & Advanced Calculus (IIM Bangalore UG focus)", "Matrices, Determinants & Calculus Applications"
-        if any(w in q_low for w in ["straight line", "slope", "intercept", "image of", "reflection", "collinear", "parallelogram", "coordinates"]):
-            return "QA - Adv Math & Calculus", "Coordinate Geometry", "2D Coordinate Geometry, Lines & Geometric Areas"
-        if any(w in q_low for w in ["circle", "tangent", "secant", "chord", "sphere", "cone", "cylinder", "cuboid", "volume", "surface area", "mensuration"]):
-            return "QA - Adv Math & Calculus", "Geometry - Circles, Quadrilaterals & Mensuration", "Circles, Tangents, Quadrilaterals & 3D Mensuration"
-        if any(w in q_low for w in ["triangle", "angle bisector", "altitude", "median", "similar", "polygon"]):
-            return "QA - Adv Math & Calculus", "Geometry - Lines, Triangles & Polygons", "Triangles, Polygons & Angle Bisector Theorems"
-        if any(w in q_low for w in ["sin", "cos", "tan", "trigonometric", "heights and distances"]):
-            return "QA - Adv Math & Calculus", "Trigonometry & Heights and Distances", "Trigonometric Identities & Heights/Distances"
+        # Sub-Subject: QA - Adv Math & Calculus
+        if any(w in t_clean for w in ["permutation", "combination", "ncr", "npr", "ways can", "number of ways", "seated", "seating around", "circular table", "probability", "bayes", "tournament", "knockout", "seeded"]):
+            return "QA - Adv Math & Calculus", "Permutations, Combinations & Probability", format_topic("Combinatorics, Permutations & Probability Theorems")
+        if any(w in t_clean for w in ["venn diagram", "set theory", "sets", "cohort", "binomial", "coefficient", "remainder theorem for polynomial"]):
+            return "QA - Adv Math & Calculus", "Set Theory, Functions & Binomial Theorem", format_topic("Set Theory (Venn Diagrams) & Binomial Theorem")
+        if any(w in t_clean for w in ["matrix", "matrices", "determinant", "det(", "bmatrix", "derivative", "dy/dx", "integral", "limit", "maxima", "minima"]):
+            return "QA - Adv Math & Calculus", "Matrices, Determinants & Advanced Calculus (IIM Bangalore UG focus)", format_topic("Matrices, Determinants & Calculus Applications")
+        if any(w in t_clean for w in ["straight line", "slope", "intercept", "image of", "reflection", "collinear", "parallelogram", "coordinates"]):
+            return "QA - Adv Math & Calculus", "Coordinate Geometry", format_topic("2D Coordinate Geometry, Lines & Geometric Areas")
+        if any(w in t_clean for w in ["circle", "tangent", "secant", "chord", "sphere", "cone", "cylinder", "cuboid", "volume", "surface area", "mensuration"]):
+            return "QA - Adv Math & Calculus", "Geometry - Circles, Quadrilaterals & Mensuration", format_topic("Circles, Tangents, Quadrilaterals & 3D Mensuration")
+        if any(w in t_clean for w in ["triangle", "angle bisector", "altitude", "median", "similar", "polygon"]):
+            return "QA - Adv Math & Calculus", "Geometry - Lines, Triangles & Polygons", format_topic("Triangles, Polygons & Angle Bisector Theorems")
+        if any(w in t_clean for w in ["sin", "cos", "tan", "trigonometric", "heights and distances"]):
+            return "QA - Adv Math & Calculus", "Trigonometry & Heights and Distances", format_topic("Trigonometric Identities & Heights/Distances")
 
-        # Arithmetic & Algebra
-        if any(w in q_low for w in ["logarithm", "log2", "log3", "log10", "log(", "\\log", "function", "f(x)", "g(x)", "graph"]):
-            return "QA - Arithmetic & Algebra", "Functions, Graphs & Logarithms", "Logarithms, Properties & Functional Graphs"
-        if any(w in q_low for w in ["ap", "gp", "hp", "agp", "progression", "arithmetic progression", "geometric progression", "series", "\\sum"]):
-            return "QA - Arithmetic & Algebra", "Sequences, Series & Progressions", "AP, GP, AGP & Special Progressions"
-        if any(w in q_low for w in ["quadratic", "cubic", "polynomial", "vieta", "roots", "discriminant", "modulus", "absolute value", "|x"]):
-            return "QA - Arithmetic & Algebra", "Linear & Quadratic Equations", "Linear, Quadratic & Polynomial Equations"
-        if any(w in q_low for w in ["time and work", "days", "hours", "craftsman", "apprentice", "pipes", "cistern", "speed", "distance", "train", "upstream", "downstream"]):
-            return "QA - Arithmetic & Algebra", "Time, Speed, Distance & Work", "Time & Work (Alternate Days/Efficiency) & TSD"
-        if any(w in q_low for w in ["ratio", "proportion", "variation", "mixture", "alligation", "average", "mean", "median", "mode", "ages"]):
-            return "QA - Arithmetic & Algebra", "Ratio, Proportion, Variation & Averages", "Ratio, Proportion, Mixtures & Averages"
-        if any(w in q_low for w in ["cost price", "selling price", "profit", "loss", "discount", "simple interest", "compound interest", "loan", "installment", "percent"]):
-            return "QA - Arithmetic & Algebra", "Percentages, Profit, Loss and Discount", "Profit/Loss, Compound Interest & Installments"
-        if any(w in q_low for w in ["divisible", "remainder", "factors", "prime", "hcf", "lcm", "unit digit", "cyclicity", "integers"]):
-            return "QA - Arithmetic & Algebra", "Number System & Basic Arithmetic", "Divisibility, Factors, Remainders & Base Systems"
+        # Sub-Subject: QA - Arithmetic & Algebra
+        if any(w in t_clean for w in ["logarithm", "log2", "log3", "log10", "log(", "function", "f(x)", "g(x)", "graph"]):
+            return "QA - Arithmetic & Algebra", "Functions, Graphs & Logarithms", format_topic("Logarithms, Properties & Functional Graphs")
+        if any(w in t_clean for w in ["ap", "gp", "hp", "agp", "progression", "arithmetic progression", "geometric progression", "series"]):
+            return "QA - Arithmetic & Algebra", "Sequences, Series & Progressions", format_topic("AP, GP, AGP & Special Progressions")
+        if any(w in t_clean for w in ["quadratic", "cubic", "polynomial", "vieta", "roots", "discriminant", "modulus", "absolute value", "|x"]):
+            return "QA - Arithmetic & Algebra", "Linear & Quadratic Equations", format_topic("Linear, Quadratic & Polynomial Equations")
+        if any(w in t_clean for w in ["time and work", "days", "hours", "craftsman", "apprentice", "pipes", "cistern", "speed", "distance", "train", "upstream", "downstream", "km/hr", "kmph"]):
+            return "QA - Arithmetic & Algebra", "Time, Speed, Distance & Work", format_topic("Time & Work (Alternate Days/Efficiency) & TSD")
+        if any(w in t_clean for w in ["ratio", "proportion", "variation", "mixture", "alligation", "average", "mean", "median", "mode", "ages"]):
+            return "QA - Arithmetic & Algebra", "Ratio, Proportion, Variation & Averages", format_topic("Ratio, Proportion, Mixtures & Averages")
+        if any(w in t_clean for w in ["cost price", "selling price", "profit", "loss", "discount", "simple interest", "compound interest", "loan", "installment", "percent", "marked price"]):
+            return "QA - Arithmetic & Algebra", "Percentages, Profit, Loss and Discount", format_topic("Profit/Loss, Compound Interest & Installments")
+        if any(w in t_clean for w in ["divisible", "remainder", "factors", "prime", "hcf", "lcm", "unit digit", "cyclicity", "integers", "even factors"]):
+            return "QA - Arithmetic & Algebra", "Number System & Basic Arithmetic", format_topic("Divisibility, Factors, Remainders & Base Systems")
 
-        return "QA - Arithmetic & Algebra", "Number System & Basic Arithmetic", "General Quantitative Ability"
+        return "QA - Arithmetic & Algebra", "Number System & Basic Arithmetic", format_topic("General Quantitative Ability")
 
     elif detected_subject in ["Verbal Ability", "VA"]:
-        if any(w in q_low for w in ["passage", "author", "infer", "primary purpose", "according to the text", "central idea", "tone", "paragraph", "in the passage"]):
-            return "DI & Verbal Ability", "Reading Comprehension (RC)", "Central Idea, Inference & Passage Tone"
-        if any(w in q_low for w in ["arrange the following", "para jumble", "logical order", "odd sentence", "summary of the passage", "paragraph completion"]):
-            return "DI & Verbal Ability", "Verbal Reasoning & Para-based Questions", "Para Jumbles, Odd Sentence Out & Summary"
-        if any(w in q_low for w in ["synonym", "antonym", "idiom", "one word", "active voice", "passive voice", "direct speech", "grammatically", "error", "preposition", "spelling", "fill in the blank"]):
-            return "DI & Verbal Ability", "Vocabulary & Grammar", "Grammar Rules, Error Spotting & Vocabulary Usage"
+        if any(w in t_clean for w in ["passage", "author", "infer", "primary purpose", "according to the text", "central idea", "tone", "paragraph", "in the passage"]):
+            return "DI & Verbal Ability", "Reading Comprehension (RC)", format_topic("Central Idea, Inference & Passage Tone")
+        if any(w in t_clean for w in ["arrange the following", "para jumble", "logical order", "odd sentence", "summary of the passage", "paragraph completion"]):
+            return "DI & Verbal Ability", "Verbal Reasoning & Para-based Questions", format_topic("Para Jumbles, Odd Sentence Out & Summary")
+        if any(w in t_clean for w in ["synonym", "antonym", "idiom", "one word", "active voice", "passive voice", "direct speech", "grammatically", "error", "preposition", "spelling", "fill in the blank", "phrasal verb"]):
+            return "DI & Verbal Ability", "Vocabulary & Grammar", format_topic("Grammar Rules, Error Spotting & Vocabulary Usage")
 
-        return "DI & Verbal Ability", "Vocabulary & Grammar", "Grammar & Sentence Correction"
+        return "DI & Verbal Ability", "Vocabulary & Grammar", format_topic("Grammar & Sentence Correction")
 
     elif detected_subject in ["Logical Reasoning", "LR"]:
-        if any(w in q_low for w in ["code", "coded", "series", "missing number", "alphabet series"]):
-            return "Logical Reasoning", "Coding-Decoding & Series", "Number/Letter Coding & Alpha-Numeric Series"
-        if any(w in q_low for w in ["blood relation", "father", "mother", "sister", "direction", "facing north", "facing south", "distance"]):
-            return "Logical Reasoning", "Blood Relations & Direction Sense", "Family Tree Blood Relations & Direction Sense"
-        if any(w in q_low for w in ["seating", "circular table", "row of people", "linear arrangement"]):
-            return "Logical Reasoning", "Seating Arrangement & Linear/Circular Ordering", "Circular/Linear Seating Arrangement"
-        if any(w in q_low for w in ["syllogism", "conclusion", "cube", "dice", "opposite face", "venn"]):
-            return "Logical Reasoning", "Syllogisms, Venn Diagrams & Cube/Dice", "Syllogisms, Venn Diagrams & Cube/Dice"
-        return "Logical Reasoning", "Critical Reasoning & Analytical Reasoning (Rohtak & JIPMAT focus)", "Analytical Reasoning Puzzles"
+        if any(w in t_clean for w in ["code", "coded", "series", "missing number", "alphabet series", "analogy"]):
+            return "Logical Reasoning", "Coding-Decoding & Series", format_topic("Number/Letter Coding & Alpha-Numeric Series")
+        if any(w in t_clean for w in ["blood relation", "father", "mother", "sister", "direction", "facing north", "facing south", "distance"]):
+            return "Logical Reasoning", "Blood Relations & Direction Sense", format_topic("Family Tree Blood Relations & Direction Sense")
+        if any(w in t_clean for w in ["seating", "circular table", "row of people", "linear arrangement", "five friends"]):
+            return "Logical Reasoning", "Seating Arrangement & Linear/Circular Ordering", format_topic("Circular/Linear Seating Arrangement")
+        if any(w in t_clean for w in ["syllogism", "conclusion", "cube", "dice", "opposite face", "venn"]):
+            return "Logical Reasoning", "Syllogisms, Venn Diagrams & Cube/Dice", format_topic("Syllogisms, Venn Diagrams & Cube/Dice")
+        return "Logical Reasoning", "Critical Reasoning & Analytical Reasoning (Rohtak & JIPMAT focus)", format_topic("Analytical Reasoning Puzzles")
 
     elif detected_subject in ["Data Interpretation", "DI"]:
-        return "DI & Verbal Ability", "Data Interpretation (DI)", "Tables, Bar Graphs, Pie Charts & Caselets"
+        return "DI & Verbal Ability", "Data Interpretation (DI)", format_topic("Tables, Bar Graphs, Pie Charts & Caselets")
 
-    # ── 2. JEE / NEET STEM SUBJECTS ──────────────────────────────────
+    # ── 2. PHYSICS (NCERT STANDARD 19 CHAPTERS) ──────────────────────
     elif detected_subject == "Physics":
-        if any(w in q_low for w in ["dimension", "dimensional formula", "vernier", "screw gauge", "error"]):
-            return "Physics", "Physical World and Measurement", "Dimensional Analysis & Errors"
-        if any(w in q_low for w in ["projectile", "velocity", "acceleration", "relative velocity", "1d motion"]):
-            return "Physics", "Kinematics", "Projectile Motion & 1D/2D Kinematics"
-        if any(w in q_low for w in ["friction", "newton", "pulley", "momentum", "impulse"]):
-            return "Physics", "Laws of Motion", "Newton's Laws & Friction"
-        if any(w in q_low for w in ["work done", "power", "collision", "spring", "potential energy"]):
-            return "Physics", "Work, Energy and Power", "Work-Energy Theorem & Collisions"
-        if any(w in q_low for w in ["moment of inertia", "torque", "angular momentum", "rolling"]):
-            return "Physics", "Motion of System of Particles and Rigid Body", "Moment of Inertia & Rotational Dynamics"
-        if any(w in q_low for w in ["gravitation", "escape velocity", "orbital speed", "kepler"]):
-            return "Physics", "Gravitation", "Universal Gravitation & Orbital Motion"
-        if any(w in q_low for w in ["current", "resistance", "ohm", "kirchhoff", "potentiometer", "meter bridge"]):
-            return "Physics", "Current Electricity", "Ohm's Law, Kirchhoff's Laws & Circuits"
-        if any(w in q_low for w in ["electric field", "coulomb", "potential", "capacitor", "capacitance", "gauss"]):
-            return "Physics", "Electrostatics", "Electric Potential, Capacitance & Gauss Law"
-        if any(w in q_low for w in ["magnetic field", "biot-savart", "ampere", "lorentz", "galvanometer"]):
-            return "Physics", "Magnetic Effects of Current and Magnetism", "Magnetic Fields & Biot-Savart Law"
-        if any(w in q_low for w in ["induction", "faraday", "lenz", "alternating current", "lcr", "transformer"]):
-            return "Physics", "Electromagnetic Induction and Alternating Currents", "AC Circuits, LCR Resonance & EMI"
-        if any(w in q_low for w in ["lens", "mirror", "refraction", "interference", "diffraction", "prism", "optics"]):
-            return "Physics", "Optics", "Ray Optics & Wave Optics"
-        if any(w in q_low for w in ["photoelectric", "de broglie", "dual nature", "work function"]):
-            return "Physics", "Dual Nature of Radiation and Matter", "Photoelectric Effect & de Broglie Wavelength"
-        if any(w in q_low for w in ["bohr", "hydrogen spectrum", "nuclear", "radioactivity", "binding energy", "half life"]):
-            return "Physics", "Atoms and Nuclei", "Bohr Atomic Model & Nuclear Reactions"
-        if any(w in q_low for w in ["diode", "semiconductor", "logic gate", "transistor", "p-n junction"]):
-            return "Physics", "Electronic Devices", "Semiconductor Diodes & Logic Gates"
-        return "Physics", "Properties of Bulk Matter", "General Physics Properties"
+        sub_sub = "Physics"
+        
+        # 1. Physical World and Measurement
+        if any(w in t_clean for w in ["dimension of", "dimensional formula", "vernier", "screw gauge", "least count", "percentage error", "relative error", "significant figures", "dimensions of physical", "zero error"]):
+            if any(w in t_clean for w in ["vernier", "screw gauge", "least count", "zero error"]):
+                return sub_sub, "Physical World and Measurement", format_topic("Vernier Callipers and Screw Gauge (Least count and zero error)")
+            if any(w in t_clean for w in ["percentage error", "relative error", "error in measurement"]):
+                return sub_sub, "Physical World and Measurement", format_topic("Errors in Measurement and Error Propagation")
+            return sub_sub, "Physical World and Measurement", format_topic("Dimensions of Physical Quantities and Dimensional Analysis")
 
+        # 2. Kinematics
+        if any(w in t_clean for w in ["projectile", "trajectory", "horizontal range", "angle of projection", "time of flight", "maximum height", "rain man", "river boat", "relative velocity", "free fall", "uniformly accelerated", "velocity time graph", "displacement time", "instantaneous velocity", "motion under gravity"]):
+            if any(w in t_clean for w in ["projectile", "trajectory", "horizontal range", "angle of projection"]):
+                return sub_sub, "Kinematics", format_topic("Projectile Motion (Trajectory, Time of flight, Range)")
+            if any(w in t_clean for w in ["relative velocity", "rain man", "river boat", "closest approach"]):
+                return sub_sub, "Kinematics", format_topic("Relative Motion in 1D and 2D")
+            if any(w in t_clean for w in ["free fall", "motion under gravity", "thrown vertically"]):
+                return sub_sub, "Kinematics", format_topic("Motion under Gravity (Free fall & Vertical projection)")
+            return sub_sub, "Kinematics", format_topic("Kinematic Equations for Uniformly Accelerated Motion")
+
+        # 3. Laws of Motion
+        if any(w in t_clean for w in ["friction", "coefficient of static friction", "coefficient of kinetic friction", "angle of repose", "angle of friction", "lami's theorem", "newton's second law", "newton's third law", "momentum conservation", "impulse", "free body diagram", "pulley system", "constraint relation", "banking of road", "centripetal force", "tension in string"]):
+            if any(w in t_clean for w in ["friction", "repose", "limiting friction"]):
+                return sub_sub, "Laws of Motion", format_topic("Friction: Static, Kinetic, Laws of Friction & Angle of Repose")
+            if any(w in t_clean for w in ["pulley", "tension in string", "wedge", "free body diagram"]):
+                return sub_sub, "Laws of Motion", format_topic("Free Body Diagram, Constraint Relations & Pulley Systems")
+            if any(w in t_clean for w in ["banking", "centripetal", "circular track", "cyclist"]):
+                return sub_sub, "Laws of Motion", format_topic("Dynamics of Uniform Circular Motion & Banking of Roads")
+            if any(w in t_clean for w in ["impulse", "momentum", "recoil"]):
+                return sub_sub, "Laws of Motion", format_topic("Conservation of Linear Momentum & Impulse")
+            return sub_sub, "Laws of Motion", format_topic("Newton's Laws of Motion & Concurrent Forces")
+
+        # 4. Work, Energy and Power
+        if any(w in t_clean for w in ["work done by", "work energy theorem", "potential energy of a spring", "conservative force", "non conservative", "vertical circle", "looping the loop", "coefficient of restitution", "elastic collision", "inelastic collision", "head on collision", "loss of kinetic energy", "instantaneous power", "variable force"]):
+            if any(w in t_clean for w in ["collision", "coefficient of restitution", "head on"]):
+                return sub_sub, "Work, Energy and Power", format_topic("Elastic and Inelastic Collisions (1D and 2D)")
+            if any(w in t_clean for w in ["vertical circle", "critical velocity", "loop the loop"]):
+                return sub_sub, "Work, Energy and Power", format_topic("Motion in a Vertical Circle and Tension Variation")
+            if any(w in t_clean for w in ["spring", "compressed by", "stretched by"]):
+                return sub_sub, "Work, Energy and Power", format_topic("Potential Energy of Spring and Mechanical Energy Conservation")
+            if any(w in t_clean for w in ["power", "pump", "rate of doing work"]):
+                return sub_sub, "Work, Energy and Power", format_topic("Power and Efficiency of Mechanical Systems")
+            return sub_sub, "Work, Energy and Power", format_topic("Work Done by Constant and Variable Forces & Work-Energy Theorem")
+
+        # 5. Rotational Motion / Motion of System of Particles
+        if any(w in t_clean for w in ["centre of mass", "center of mass", "moment of inertia", "radius of gyration", "parallel axis theorem", "perpendicular axis theorem", "torque", "angular momentum", "conservation of angular momentum", "pure rolling", "rolling without slipping", "angular acceleration", "rotational kinetic energy"]):
+            if any(w in t_clean for w in ["centre of mass", "center of mass", "two particle system"]):
+                return sub_sub, "Motion of System of Particles and Rigid Body", format_topic("Centre of Mass of Symmetrical & Multi-Particle Systems")
+            if any(w in t_clean for w in ["moment of inertia", "radius of gyration", "parallel axis", "perpendicular axis"]):
+                return sub_sub, "Motion of System of Particles and Rigid Body", format_topic("Moment of Inertia and Theorems of Parallel/Perpendicular Axes")
+            if any(w in t_clean for w in ["angular momentum", "conservation of angular"]):
+                return sub_sub, "Motion of System of Particles and Rigid Body", format_topic("Conservation of Angular Momentum and Torque")
+            if any(w in t_clean for w in ["pure rolling", "rolling without slipping", "inclined plane"]):
+                return sub_sub, "Motion of System of Particles and Rigid Body", format_topic("Rolling Motion on Horizontal and Inclined Planes")
+            return sub_sub, "Motion of System of Particles and Rigid Body", format_topic("Rotational Dynamics and Angular Kinematics")
+
+        # 6. Gravitation
+        if any(w in t_clean for w in ["gravitational constant", "universal law of gravitation", "acceleration due to gravity", "variation of g", "escape velocity", "orbital velocity", "geostationary satellite", "kepler's law", "gravitational potential", "gravitational potential energy", "time period of satellite"]):
+            if any(w in t_clean for w in ["escape velocity", "orbital velocity", "satellite", "geostationary"]):
+                return sub_sub, "Gravitation", format_topic("Escape Velocity and Orbital Velocity of Satellites")
+            if any(w in t_clean for w in ["kepler", "areal velocity", "law of periods"]):
+                return sub_sub, "Gravitation", format_topic("Kepler's Laws of Planetary Motion")
+            if any(w in t_clean for w in ["variation of g", "depth", "altitude", "rotation of earth"]):
+                return sub_sub, "Gravitation", format_topic("Acceleration due to Gravity ($g$) and its Variation")
+            return sub_sub, "Gravitation", format_topic("Gravitational Potential and Universal Gravitation Law")
+
+        # 7. Behavior of Perfect Gases and Kinetic Theory
+        if any(w in t_clean for w in ["kinetic theory", "rms speed", "root mean square", "most probable speed", "average speed of gas", "degrees of freedom", "equipartition of energy", "molar specific heat", "cp/cv", "mean free path", "ideal gas equation", "pv = nrt", "pressure of ideal gas", "gas molecules at temperature"]):
+            if any(w in t_clean for w in ["rms", "root mean square", "most probable", "average speed"]):
+                return sub_sub, "Behavior of Perfect Gases and Kinetic Theory", format_topic("Molecular Speeds (RMS, Average, Most Probable) in Ideal Gas")
+            if any(w in t_clean for w in ["degrees of freedom", "equipartition", "gamma", "cp/cv"]):
+                return sub_sub, "Behavior of Perfect Gases and Kinetic Theory", format_topic("Degrees of Freedom, Law of Equipartition and Specific Heats ($C_p, C_v$)")
+            return sub_sub, "Behavior of Perfect Gases and Kinetic Theory", format_topic("Kinetic Theory of Gases, Gas Pressure and Mean Free Path")
+
+        # 8. Properties of Bulk Matter
+        if any(w in t_clean for w in ["young's modulus", "bulk modulus", "shear modulus", "poisson's ratio", "stress strain", "hooke's law", "pascal's law", "hydraulic lift", "archimedes", "buoyancy", "bernoulli", "venturimeter", "torricelli", "equation of continuity", "stokes' law", "terminal velocity", "viscosity", "surface tension", "angle of contact", "capillarity", "excess pressure"]):
+            if any(w in t_clean for w in ["young's modulus", "bulk modulus", "stress strain", "hooke"]):
+                return sub_sub, "Properties of Bulk Matter", format_topic("Elastic Behaviour, Stress-Strain Relationship and Moduli of Elasticity")
+            if any(w in t_clean for w in ["surface tension", "angle of contact", "capillary", "excess pressure", "bubble", "drop"]):
+                return sub_sub, "Properties of Bulk Matter", format_topic("Surface Tension, Capillarity and Excess Pressure in Drops/Bubbles")
+            if any(w in t_clean for w in ["viscosity", "terminal velocity", "stokes"]):
+                return sub_sub, "Properties of Bulk Matter", format_topic("Viscosity, Stokes' Law and Terminal Velocity")
+            if any(w in t_clean for w in ["bernoulli", "continuity", "venturimeter", "torricelli", "efflux"]):
+                return sub_sub, "Properties of Bulk Matter", format_topic("Equation of Continuity and Bernoulli's Principle Applications")
+            return sub_sub, "Properties of Bulk Matter", format_topic("Fluid Statics, Pascal's Law and Archimedes' Principle")
+
+        # 9. Thermodynamics
+        if any(w in t_clean for w in ["calorimetry", "specific heat capacity", "latent heat", "thermal expansion", "thermal conductivity", "stefan", "wien's displacement", "newton's law of cooling", "first law of thermodynamics", "isothermal process", "adiabatic process", "isochoric", "isobaric", "carnot engine", "efficiency of carnot", "refrigerator", "cop", "second law of thermodynamics"]):
+            if any(w in t_clean for w in ["carnot", "efficiency of heat engine", "refrigerator", "cop"]):
+                return sub_sub, "Thermodynamics", format_topic("Second Law of Thermodynamics, Carnot Engine and Refrigerators")
+            if any(w in t_clean for w in ["isothermal", "adiabatic", "cyclic process", "pv diagram", "work done in"]):
+                return sub_sub, "Thermodynamics", format_topic("Thermodynamic Processes (Isothermal, Adiabatic, Cyclic) & First Law")
+            if any(w in t_clean for w in ["cooling", "stefan", "wien", "black body", "thermal conductivity", "radiation"]):
+                return sub_sub, "Thermodynamics", format_topic("Heat Transfer: Conduction, Radiation, Stefan-Boltzmann & Wien's Laws")
+            return sub_sub, "Thermodynamics", format_topic("Calorimetry, Thermal Expansion and Specific Heat")
+
+        # 10. Oscillations and Waves
+        if any(w in t_clean for w in ["simple harmonic motion", "shm", "simple pendulum", "spring mass", "spring pendulum", "damped oscillation", "forced oscillation", "resonance in shm", "phase difference in shm", "transverse wave", "longitudinal wave", "standing wave", "organ pipe", "beats", "doppler effect", "string fixed at"]):
+            if any(w in t_clean for w in ["doppler effect", "apparent frequency"]):
+                return sub_sub, "Oscillations and Waves", format_topic("Doppler Effect in Sound")
+            if any(w in t_clean for w in ["standing wave", "organ pipe", "beats", "overtone", "harmonic", "sonometer"]):
+                return sub_sub, "Oscillations and Waves", format_topic("Standing Waves in Strings/Organ Pipes, Harmonics and Beats")
+            if any(w in t_clean for w in ["spring mass", "simple pendulum", "time period of oscillation"]):
+                return sub_sub, "Oscillations and Waves", format_topic("Simple Pendulum, Spring-Mass Systems and SHM Time Period")
+            if any(w in t_clean for w in ["energy in shm", "kinetic energy in shm", "potential energy in shm", "amplitude"]):
+                return sub_sub, "Oscillations and Waves", format_topic("Kinematics and Energy in Simple Harmonic Motion (SHM)")
+            return sub_sub, "Oscillations and Waves", format_topic("Wave Motion and Progressive Waves Superposition")
+
+        # 11. Electrostatics (NCERT Split: Electric Charges and Fields vs Electrostatic Potential and Capacitance)
+        if any(w in t_clean for w in ["coulomb's law", "coulomb", "electric charge", "charge q", "point charge", "electric field", "electric dipole", "dipole moment", "electric flux", "gauss's law", "gaussian surface", "field due to dipole", "torque on dipole", "continuous charge", "electric line of force", "equipotential", "electric potential", "potential energy of system of charges", "potential is", "potential of", "potential difference", "potential at", "work done in moving a charge", "moving a charge", "charge of", "capacitor", "capacitance", "parallel plate capacitor", "dielectric constant", "dielectric slab", "energy stored in capacitor", "combination of capacitors"]):
+            is_ch2 = any(w in t_clean for w in ["capacitor", "capacitance", "dielectric", "potential energy", "equipotential", "electric potential", "potential difference", "potential is", "potential of", "potential at", "work done in moving", "potential v", "v0", "energy stored in capacitor", "van de graaff"])
+            is_ch1 = any(w in t_clean for w in ["electric field lines", "gauss's law", "electric flux", "coulomb's law", "force between two charges", "torque on dipole", "superposition of forces", "null point", "neutral point"])
+
+            if is_ch2 and not (is_ch1 and "coulomb" in t_clean and "capacitor" not in t_clean):
+                if any(w in t_clean for w in ["capacitor", "capacitance", "dielectric", "parallel plate"]):
+                    return sub_sub, "Electrostatic Potential and Capacitance", format_topic("Capacitors, Dielectrics and Energy Stored in Capacitor")
+                if any(w in t_clean for w in ["equipotential", "potential gradient", "potential difference", "potential is", "potential at", "work done in moving"]):
+                    return sub_sub, "Electrostatic Potential and Capacitance", format_topic("Electric Potential, Equipotential Surfaces and Potential Gradient")
+                return sub_sub, "Electrostatic Potential and Capacitance", format_topic("Electrostatic Potential and Potential Energy of Charges")
+            else:
+                if any(w in t_clean for w in ["gauss", "electric flux", "gaussian"]):
+                    return sub_sub, "Electric Charges and Fields", format_topic("Electric Flux and Gauss's Law Applications")
+                if any(w in t_clean for w in ["dipole", "torque on dipole"]):
+                    return sub_sub, "Electric Charges and Fields", format_topic("Electric Dipole, Dipole Moment and Torque in Uniform Field")
+                if any(w in t_clean for w in ["coulomb", "force between", "superposition", "null point", "neutral point"]):
+                    return sub_sub, "Electric Charges and Fields", format_topic("Coulomb's Law, Superposition Principle and Equilibrium of Charges")
+                return sub_sub, "Electric Charges and Fields", format_topic("Electric Field and Electric Field Lines")
+
+        # 12. Current Electricity
+        if any(w in t_clean for w in ["drift velocity", "mobility", "ohm's law", "resistivity", "conductivity", "temperature coefficient of resistance", "internal resistance", "emf of cell", "terminal potential", "kirchhoff", "wheatstone bridge", "meter bridge", "potentiometer", "series and parallel resistors", "colour code"]):
+            if any(w in t_clean for w in ["potentiometer", "internal resistance of cell", "comparison of emfs"]):
+                return sub_sub, "Current Electricity", format_topic("Potentiometer Principle and Comparison of EMFs")
+            if any(w in t_clean for w in ["wheatstone", "meter bridge"]):
+                return sub_sub, "Current Electricity", format_topic("Wheatstone Bridge and Meter Bridge")
+            if any(w in t_clean for w in ["kirchhoff", "loop law", "junction law", "network"]):
+                return sub_sub, "Current Electricity", format_topic("Kirchhoff's Laws and Circuit Analysis")
+            if any(w in t_clean for w in ["drift velocity", "mobility", "electron density"]):
+                return sub_sub, "Current Electricity", format_topic("Drift Velocity, Mobility and Electric Current Mechanism")
+            return sub_sub, "Current Electricity", format_topic("Ohm's Law, Resistance and Temperature Dependence")
+
+        # 13. Magnetic Effects of Current and Magnetism
+        if any(w in t_clean for w in ["biot savart", "ampere's circuital", "solenoid", "toroid", "lorentz force", "cyclotron", "force on current carrying", "galvanometer", "moving coil galvanometer", "shunt", "ammeter conversion", "voltmeter conversion", "magnetic dipole moment", "earth's magnetism", "angle of dip", "declination", "diamagnetic", "paramagnetic", "ferromagnetic", "hysteresis"]):
+            if any(w in t_clean for w in ["galvanometer", "ammeter", "voltmeter", "shunt"]):
+                return sub_sub, "Magnetic Effects of Current and Magnetism", format_topic("Moving Coil Galvanometer, Ammeter and Voltmeter Conversion")
+            if any(w in t_clean for w in ["lorentz force", "charged particle in magnetic field", "cyclotron", "magnetic force"]):
+                return sub_sub, "Magnetic Effects of Current and Magnetism", format_topic("Lorentz Force on Moving Charges in Magnetic Field")
+            if any(w in t_clean for w in ["biot savart", "ampere's circuital", "solenoid", "toroid"]):
+                return sub_sub, "Magnetic Effects of Current and Magnetism", format_topic("Biot-Savart Law and Ampere's Circuital Law")
+            if any(w in t_clean for w in ["diamagnetic", "paramagnetic", "ferromagnetic", "hysteresis", "earth's magnetic", "angle of dip"]):
+                return sub_sub, "Magnetic Effects of Current and Magnetism", format_topic("Magnetic Properties of Matter and Earth's Magnetism")
+            return sub_sub, "Magnetic Effects of Current and Magnetism", format_topic("Magnetic Field of Current Carrying Conductors")
+
+        # 14. Electromagnetic Induction and Alternating Currents
+        if any(w in t_clean for w in ["magnetic flux", "faraday's law", "lenz's law", "motional emf", "eddy currents", "self induction", "mutual induction", "inductance", "alternating current", "peak value", "rms value of ac", "reactance", "impedance", "lcr circuit", "resonance in ac", "power factor", "wattless current", "transformer"]):
+            if any(w in t_clean for w in ["lcr", "resonance in ac", "impedance", "power factor", "wattless"]):
+                return sub_sub, "Electromagnetic Induction and Alternating Currents", format_topic("Series LCR Circuit, Resonance and Power in AC Circuits")
+            if any(w in t_clean for w in ["transformer", "step up", "step down", "efficiency of transformer"]):
+                return sub_sub, "Electromagnetic Induction and Alternating Currents", format_topic("Transformers and AC Generators")
+            if any(w in t_clean for w in ["self induction", "mutual induction", "inductance", "solenoid inductance"]):
+                return sub_sub, "Electromagnetic Induction and Alternating Currents", format_topic("Self and Mutual Inductance")
+            if any(w in t_clean for w in ["faraday", "lenz", "motional emf", "induced emf"]):
+                return sub_sub, "Electromagnetic Induction and Alternating Currents", format_topic("Faraday's Laws of Induction and Motional EMF")
+            return sub_sub, "Electromagnetic Induction and Alternating Currents", format_topic("Alternating Current, RMS Values and AC Circuits")
+
+        # 15. Electromagnetic Waves
+        if any(w in t_clean for w in ["displacement current", "electromagnetic wave", "em wave", "electromagnetic spectrum", "radio wave", "microwave", "infrared", "ultraviolet", "x-ray", "gamma ray"]):
+            return sub_sub, "Electromagnetic Waves", format_topic("Electromagnetic Waves and Electromagnetic Spectrum")
+
+        # 16. Optics (Ray & Wave Optics)
+        if any(w in t_clean for w in ["spherical mirror", "mirror formula", "refractive index", "snell's law", "total internal reflection", "critical angle", "prism", "dispersion of light", "minimum deviation", "lens maker", "convex lens", "concave lens", "microscope", "telescope", "magnifying power", "huygens", "wavefront", "young's double slit", "ydse", "fringe width", "interference of light", "diffraction", "central maximum", "brewster's law", "polarization of light"]):
+            if any(w in t_clean for w in ["ydse", "young's double slit", "fringe width", "interference"]):
+                return sub_sub, "Optics", format_topic("Wave Optics: Interference of Light and Young's Double Slit Experiment")
+            if any(w in t_clean for w in ["diffraction", "central maximum", "single slit"]):
+                return sub_sub, "Optics", format_topic("Wave Optics: Single Slit Diffraction and Resolving Power")
+            if any(w in t_clean for w in ["polarization", "brewster", "polaroid", "malus"]):
+                return sub_sub, "Optics", format_topic("Wave Optics: Polarization of Light and Brewster's Law")
+            if any(w in t_clean for w in ["prism", "deviation", "dispersion", "angle of prism"]):
+                return sub_sub, "Optics", format_topic("Ray Optics: Refraction and Dispersion through Prism")
+            if any(w in t_clean for w in ["microscope", "telescope", "magnification", "astronomical"]):
+                return sub_sub, "Optics", format_topic("Ray Optics: Optical Instruments (Microscope & Telescope)")
+            if any(w in t_clean for w in ["lens maker", "combination of lenses", "focal length"]):
+                return sub_sub, "Optics", format_topic("Ray Optics: Refraction at Spherical Surfaces and Lenses")
+            if any(w in t_clean for w in ["total internal reflection", "critical angle", "optical fibre"]):
+                return sub_sub, "Optics", format_topic("Ray Optics: Total Internal Reflection and Refraction")
+            return sub_sub, "Optics", format_topic("Ray Optics and Optical Instruments")
+
+        # 17. Dual Nature of Radiation and Matter
+        if any(w in t_clean for w in ["photoelectric effect", "work function", "threshold frequency", "stopping potential", "einstein's photoelectric", "de broglie wavelength", "matter wave", "davisson germer"]):
+            if any(w in t_clean for w in ["de broglie", "matter wave"]):
+                return sub_sub, "Dual Nature of Radiation and Matter", format_topic("De Broglie Wavelength and Matter Waves")
+            return sub_sub, "Dual Nature of Radiation and Matter", format_topic("Photoelectric Effect and Einstein's Equation")
+
+        # 18. Atoms and Nuclei
+        if any(w in t_clean for w in ["rutherford model", "alpha particle scattering", "bohr model", "hydrogen spectrum", "lyman", "balmer", "paschen", "rydberg constant", "radius of bohr orbit", "mass defect", "binding energy", "nuclear fission", "nuclear fusion", "radioactivity", "half life", "decay constant", "activity of radioactive"]):
+            if any(w in t_clean for w in ["bohr", "hydrogen spectrum", "lyman", "balmer", "rydberg"]):
+                return sub_sub, "Atoms and Nuclei", format_topic("Bohr Model of Hydrogen Atom and Spectral Series")
+            if any(w in t_clean for w in ["binding energy", "mass defect", "fission", "fusion"]):
+                return sub_sub, "Atoms and Nuclei", format_topic("Nuclear Structure, Mass Defect and Binding Energy")
+            if any(w in t_clean for w in ["radioactivity", "half life", "decay constant", "alpha decay"]):
+                return sub_sub, "Atoms and Nuclei", format_topic("Radioactivity and Radioactive Decay Law")
+            return sub_sub, "Atoms and Nuclei", format_topic("Atoms and Nuclei Structure")
+
+        # 19. Electronic Devices / Semiconductors
+        if any(w in t_clean for w in ["semiconductor", "intrinsic semiconductor", "extrinsic semiconductor", "p-n junction", "diode", "rectifier", "half wave rectifier", "full wave rectifier", "zener diode", "logic gate", "truth table", "nand gate", "nor gate", "led", "photodiode", "solar cell", "transistor"]):
+            if any(w in t_clean for w in ["logic gate", "truth table", "nand", "nor", "xor"]):
+                return sub_sub, "Electronic Devices", format_topic("Logic Gates and Truth Tables")
+            if any(w in t_clean for w in ["zener diode", "voltage regulator"]):
+                return sub_sub, "Electronic Devices", format_topic("Zener Diode as Voltage Regulator")
+            if any(w in t_clean for w in ["rectifier", "forward bias", "reverse bias", "p-n junction"]):
+                return sub_sub, "Electronic Devices", format_topic("P-N Junction Diode and Rectifiers")
+            return sub_sub, "Electronic Devices", format_topic("Semiconductor Physics and Electronic Devices")
+
+        return sub_sub, "Properties of Bulk Matter", format_topic("Fundamental Physical Principles")
+
+    # ── 3. CHEMISTRY (NCERT STANDARD 28 CHAPTERS) ────────────────────
     elif detected_subject == "Chemistry":
-        if any(w in q_low for w in ["mole", "molar mass", "molarity", "stoichiometry", "empirical formula"]):
-            return "Chemistry", "Some Basic Concepts of Chemistry", "Mole Concept & Stoichiometry"
-        if any(w in q_low for w in ["quantum number", "orbital", "bohr", "electronic configuration", "aufbau"]):
-            return "Chemistry", "Structure of Atom", "Quantum Numbers & Electronic Configurations"
-        if any(w in q_low for w in ["hybridization", "vsepr", "dipole moment", "hydrogen bonding", "molecular orbital"]):
-            return "Chemistry", "Chemical Bonding and Molecular Structure", "Hybridization & Molecular Orbitals"
-        if any(w in q_low for w in ["enthalpy", "entropy", "gibbs", "first law", "hess law"]):
-            return "Chemistry", "Chemical Thermodynamics", "Thermodynamic Laws & Gibbs Free Energy"
-        if any(w in q_low for w in ["equilibrium constant", "le chatelier", "ph of", "buffer", "solubility product"]):
-            return "Chemistry", "Equilibrium", "Chemical & Ionic Equilibrium (pH, Ksp)"
-        if any(w in q_low for w in ["galvanic cell", "nernst equation", "conductivity", "faraday", "emf"]):
-            return "Chemistry", "Electrochemistry", "Nernst Equation & Electrochemical Cells"
-        if any(w in q_low for w in ["order of reaction", "rate constant", "activation energy", "arrhenius", "half life of reaction"]):
-            return "Chemistry", "Chemical Kinetics", "Rate Laws & Arrhenius Equation"
-        if any(w in q_low for w in ["iupac", "carbocation", "isomerism", "inductive effect", "resonance"]):
-            return "Chemistry", "Some Basic Principles of Organic Chemistry (GOC)", "IUPAC Nomenclature, Electronic Effects & Isomerism"
-        if any(w in q_low for w in ["alkane", "alkene", "alkyne", "aromatic", "benzene", "ozonolysis", "markovnikov"]):
-            return "Chemistry", "Hydrocarbons", "Alkanes, Alkenes, Alkynes & Aromatic Chemistry"
-        if any(w in q_low for w in ["coordination", "ligand", "crystal field", "isomerism in coordination"]):
-            return "Chemistry", "Coordination Compounds", "Coordination Complexes & Crystal Field Theory"
-        return "Chemistry", "General Principles and Processes of Isolation of Elements", "Inorganic & General Chemistry"
+        sub_sub = detected_sub_subject if detected_sub_subject in ["Physical Chemistry", "Organic Chemistry", "Inorganic Chemistry", "PC", "OC", "IOC"] else "Chemistry"
 
+        # Equilibrium / Ionic Equilibrium
+        if any(w in t_clean for w in ["equilibrium constant", "le chatelier", "ph of", "ph when", "buffer", "ch3cooh", "ch3coona", "solubility product", "ksp", "common ion effect", "hydrolysis of salt"]):
+            return "Physical Chemistry", "Equilibrium", format_topic("Chemical & Ionic Equilibrium (pH, Buffer, Ksp)")
+        # Physical Chemistry
+        if any(w in t_clean for w in ["mole concept", "molar mass", "molarity", "molality", "mole fraction", "stoichiometry", "empirical formula", "limiting reagent"]):
+            return "Physical Chemistry", "Some Basic Concepts of Chemistry", format_topic("Mole Concept, Stoichiometry & Concentration Terms")
+        if any(w in t_clean for w in ["quantum number", "orbital", "bohr model", "electronic configuration", "aufbau", "hund", "pauli exclusion", "heisenberg", "de broglie"]):
+            return "Physical Chemistry", "Structure of Atom", format_topic("Quantum Numbers, Orbitals & Electronic Configurations")
+        if any(w in t_clean for w in ["hybridization", "vsepr", "dipole moment", "hydrogen bonding", "molecular orbital", "mot", "bond order"]):
+            return "Inorganic Chemistry", "Chemical Bonding and Molecular Structure", format_topic("Hybridization, VSEPR Theory & Molecular Orbitals")
+        if any(w in t_clean for w in ["enthalpy", "entropy", "gibbs free energy", "first law of thermodynamics", "hess's law", "spontaneity", "calorimetry"]):
+            return "Physical Chemistry", "Chemical Thermodynamics", format_topic("Enthalpy, Entropy & Gibbs Free Energy")
+        if any(w in t_clean for w in ["oxidation number", "oxidation state", "balancing redox", "disproportionation"]):
+            return "Physical Chemistry", "Redox Reactions", format_topic("Oxidation Numbers & Redox Balancing")
+        if any(w in t_clean for w in ["raoult's law", "colligative", "elevation in boiling", "depression in freezing", "osmotic pressure", "van't hoff"]):
+            return "Physical Chemistry", "Solutions", format_topic("Colligative Properties & Van't Hoff Factor")
+        if any(w in t_clean for w in ["galvanic cell", "nernst equation", "conductivity", "kohlrausch", "faraday's law of electrolysis", "emf of cell", "standard reduction potential"]):
+            return "Physical Chemistry", "Electrochemistry", format_topic("Nernst Equation, Electrochemical Cells & Kohlrausch's Law")
+        if any(w in t_clean for w in ["order of reaction", "rate constant", "activation energy", "arrhenius equation", "half life of reaction", "first order reaction"]):
+            return "Physical Chemistry", "Chemical Kinetics", format_topic("Rate Laws, Integrated Rate Equations & Arrhenius Equation")
+        if any(w in t_clean for w in ["adsorption", "physisorption", "chemisorption", "colloid", "micelle", "emulsion", "catalysis"]):
+            return "Physical Chemistry", "Surface Chemistry", format_topic("Adsorption, Colloids and Emulsions")
+
+        # Inorganic Chemistry
+        if any(w in t_clean for w in ["periodic table", "ionization enthalpy", "electron gain enthalpy", "electronegativity", "periodic trend"]):
+            return "Inorganic Chemistry", "Classification of Elements and Periodicity in Properties", format_topic("Periodic Trends & Atomic Properties")
+        if any(w in t_clean for w in ["coordination compound", "ligand", "crystal field theory", "cfse", "isomers in coordination", "iupac naming of complex", "spectrochemical series", "fe(cn)6"]):
+            return "Inorganic Chemistry", "Coordination Compounds", format_topic("Coordination Complexes, Ligands & Crystal Field Theory")
+        if any(w in t_clean for w in ["lanthanoid", "actinoid", "transition elements", "d block", "f block", "kmno4", "k2cr2o7", "magnetic moment of transition"]):
+            return "Inorganic Chemistry", "d- and f-Block Elements", format_topic("Transition Elements, Lanthanoid Contraction & Redox Properties")
+        if any(w in t_clean for w in ["p block", "boron", "carbon family", "nitrogen family", "oxygen family", "halogen", "noble gas", "inert pair effect"]):
+            return "Inorganic Chemistry", "p-Block Elements (Groups 13 to 18)", format_topic("Group Properties, Allotropes & Important Compounds")
+        if any(w in t_clean for w in ["metallurgy", "froth floatation", "calcination", "roasting", "elligham diagram", "zone refining"]):
+            return "Inorganic Chemistry", "General Principles and Processes of Isolation of Elements", format_topic("Metallurgical Extraction & Refining Processes")
+
+        # Organic Chemistry
+        if any(w in t_clean for w in ["iupac", "carbocation", "carbanion", "free radical", "inductive effect", "resonance effect", "hyperconjugation", "electrophile", "nucleophile", "tautomerism", "isomerism"]):
+            return "Organic Chemistry", "Some Basic Principles of Organic Chemistry (GOC)", format_topic("IUPAC Nomenclature, Electronic Effects & Reaction Intermediates")
+        if any(w in t_clean for w in ["alkane", "alkene", "alkyne", "aromatic", "benzene", "ozonolysis", "markovnikov", "anti markovnikov", "friedel crafts", "electrophilic aromatic"]):
+            return "Organic Chemistry", "Hydrocarbons", format_topic("Alkanes, Alkenes, Alkynes & Aromatic Substitution")
+        if any(w in t_clean for w in ["haloalkane", "haloarene", "sn1", "sn2", "grignard reagent", "wurtz reaction"]):
+            return "Organic Chemistry", "Haloalkanes and Haloarenes", format_topic("Nucleophilic Substitution (SN1/SN2) & Haloalkanes")
+        if any(w in t_clean for w in ["alcohol", "phenol", "ether", "lucas reagent", "reimer tiemann", "kolbe's reaction", "williamson synthesis", "acidity of phenol"]):
+            return "Organic Chemistry", "Alcohols, Phenols and Ethers", format_topic("Alcohols, Phenols (Acidity & Reactions) and Ethers")
+        if any(w in t_clean for w in ["aldehyde", "ketone", "carboxylic acid", "aldol condensation", "cannizzaro", "clemmensen", "tollens", "fehling", "hvz reaction"]):
+            return "Organic Chemistry", "Aldehydes, Ketones and Carboxylic Acids", format_topic("Aldol, Cannizzaro, Carbonyl Additions & Carboxylic Acids")
+        if any(w in t_clean for w in ["amine", "diazonium salt", "carbylamine test", "hofmann bromamide", "diazotization", "basicity of amine"]):
+            return "Organic Chemistry", "Organic Compounds Containing Nitrogen (Amines)", format_topic("Amines, Basicity & Diazonium Salt Synthetic Applications")
+        if any(w in t_clean for w in ["carbohydrate", "glucose", "fructose", "amino acid", "peptide bond", "protein", "dna", "rna", "vitamin", "nucleic acid"]):
+            return "Organic Chemistry", "Biomolecules", format_topic("Carbohydrates, Amino Acids, Proteins & Nucleic Acids")
+        if any(w in t_clean for w in ["polymer", "nylon", "bakelite", "teflon", "monomer", "addition polymer", "condensation polymer"]):
+            return "Organic Chemistry", "Polymers", format_topic("Polymers: Classification and Polymerization")
+
+        return "Physical Chemistry", "Some Basic Concepts of Chemistry", format_topic("General Chemical Principles")
+
+    # ── 4. MATHEMATICS (NCERT STANDARD 18 CHAPTERS) ──────────────────
     elif detected_subject == "Mathematics":
-        if any(w in q_low for w in ["matrix", "matrices", "determinant", "cramer", "adjoint"]):
-            return "Mathematics", "Matrices and Determinants", "Matrix Operations & Determinant Properties"
-        if any(w in q_low for w in ["complex number", "quadratic equation", "arg(z)", "modulus of complex", "roots"]):
-            return "Mathematics", "Complex Numbers and Quadratic Equations", "Complex Numbers & Quadratic Roots"
-        if any(w in q_low for w in ["permutation", "combination", "ncr", "npr"]):
-            return "Mathematics", "Permutations and Combinations", "Permutations & Combinations"
-        if any(w in q_low for w in ["binomial", "general term", "middle term"]):
-            return "Mathematics", "Binomial Theorem and Mathematical Induction", "Binomial Expansion & General Terms"
-        if any(w in q_low for w in ["ap", "gp", "agp", "sequence", "series"]):
-            return "Mathematics", "Sequence and Series", "AP, GP & Special Series Sums"
-        if any(w in q_low for w in ["straight line", "slope", "pair of lines"]):
-            return "Mathematics", "Coordinate Geometry (Straight Lines and Pairs of Straight Lines)", "Straight Lines & Pair of Straight Lines"
-        if any(w in q_low for w in ["circle", "tangent", "normal to circle"]):
-            return "Mathematics", "Circles and Family of Circles", "Circles, Tangents & Normals"
-        if any(w in q_low for w in ["parabola", "ellipse", "hyperbola", "eccentricity", "conic"]):
-            return "Mathematics", "Conic Sections (Parabola, Ellipse, Hyperbola)", "Parabola, Ellipse & Hyperbola"
-        if any(w in q_low for w in ["derivative", "limit", "continuity", "differentiability", "tangent and normal"]):
-            return "Mathematics", "Limits, Continuity and Differentiability", "Limits, Continuity & Differentiation"
-        if any(w in q_low for w in ["integral", "integration", "definite integral", "dx"]):
-            return "Mathematics", "Integral Calculus (Indefinite and Definite Integrals)", "Definite & Indefinite Integrals"
-        if any(w in q_low for w in ["differential equation", "order and degree", "integrating factor"]):
-            return "Mathematics", "Differential Equations", "First Order Differential Equations"
-        if any(w in q_low for w in ["vector", "dot product", "cross product", "scalar triple"]):
-            return "Mathematics", "Vector Algebra", "Vector Algebra & Products"
-        if any(w in q_low for w in ["3d", "direction cosines", "plane", "line in 3d"]):
-            return "Mathematics", "Three-Dimensional Geometry", "3D Coordinate Geometry & Planes"
-        if any(w in q_low for w in ["probability", "bayes", "random variable"]):
-            return "Mathematics", "Statistics and Probability", "Probability, Bayes Theorem & Distributions"
-        return "Mathematics", "Sets, Relations and Functions", "Sets, Relations and Functions"
+        sub_sub = "Mathematics"
 
-    elif detected_subject == "Biology":
-        if any(w in q_low for w in ["cell", "mitosis", "meiosis", "organelle", "ribosome", "mitochondria"]):
-            return "Botany", "Cell Structure and Function", "Cell Biology & Cell Division"
-        if any(w in q_low for w in ["photosynthesis", "respiration in plant", "transpiration", "plant growth"]):
-            return "Botany", "Plant Physiology", "Photosynthesis & Plant Physiology"
-        if any(w in q_low for w in ["genetics", "mendel", "dna", "rna", "mutation", "inheritance"]):
-            return "Botany", "Genetics and Evolution", "Mendelian Genetics & Molecular Biology"
-        if any(w in q_low for w in ["ecosystem", "ecology", "biodiversity", "population"]):
-            return "Botany", "Ecology and Environment", "Ecosystems & Biodiversity Conservation"
-        if any(w in q_low for w in ["heart", "blood", "circulation", "digestion", "respiratory", "kidney", "nephron", "neuron", "hormone"]):
-            return "Zoology", "Human Physiology - Body Fluids and Circulation", "Human Organ Systems & Physiology"
-        if any(w in q_low for w in ["reproduction", "embryo", "gametogenesis", "contraceptive"]):
-            return "Zoology", "Human Reproduction", "Human Reproduction & Embryology"
-        return "Botany", "Diversity in the Living World", "Plant & Animal Diversity"
+        if any(w in t_clean for w in ["matrix", "matrices", "determinant", "cramer's rule", "adjoint of matrix", "inverse of matrix", "system of linear equations", "orthogonal matrix", "skew symmetric", "eigenvalues"]):
+            return sub_sub, "Matrices and Determinants", format_topic("Matrix Algebra, Determinants & System of Linear Equations")
+        if any(w in t_clean for w in ["complex number", "argand plane", "modulus of complex", "argument of complex", "arg(z)", "roots of unity", "quadratic equation", "nature of roots", "discriminant", "common roots"]):
+            return sub_sub, "Complex Numbers and Quadratic Equations", format_topic("Complex Numbers Properties & Quadratic Equations")
+        if any(w in t_clean for w in ["permutation", "combination", "npr", "ncr", "pigeonhole", "dearrangement", "fundamental principle of counting"]):
+            return sub_sub, "Permutations and Combinations", format_topic("Permutations, Combinations & Selection Problems")
+        if any(w in t_clean for w in ["binomial theorem", "general term in binomial", "middle term in binomial", "binomial coefficients", "expansion of (x+y)^n"]):
+            return sub_sub, "Binomial Theorem and Mathematical Induction", format_topic("Binomial Expansion, General Term & Coefficient Properties")
+        if any(w in t_clean for w in ["arithmetic progression", "ap series", "geometric progression", "gp series", "harmonic progression", "agp", "sum of n terms", "sum of infinite gp"]):
+            return sub_sub, "Sequence and Series", format_topic("Arithmetic & Geometric Progressions (AP, GP, Special Series)")
+        if any(w in t_clean for w in ["limit", "limits", "continuity", "differentiability", "l'hopital", "derivative", "chain rule", "dy/dx"]):
+            return sub_sub, "Limits, Continuity and Differentiability", format_topic("Limits Evaluation, Continuity & Differentiability Theorems")
+        if any(w in t_clean for w in ["tangent and normal", "increasing and decreasing", "maxima and minima", "rate of change", "mean value theorem", "rolle's theorem"]):
+            return sub_sub, "Limits, Continuity and Differentiability", format_topic("Application of Derivatives: Tangents, Monotonicity & Maxima/Minima")
+        if any(w in t_clean for w in ["indefinite integral", "definite integral", "integration by parts", "partial fraction", "king's property", "leibniz rule", "area under curve", "area bounded by", "integral"]):
+            return sub_sub, "Integral Calculus (Indefinite and Definite Integrals)", format_topic("Definite & Indefinite Integrals, Properties and Area Under Curves")
+        if any(w in t_clean for w in ["differential equation", "order and degree", "integrating factor", "variable separable", "homogeneous differential", "linear differential"]):
+            return sub_sub, "Differential Equations", format_topic("Formation and Solution of Differential Equations")
+        if any(w in t_clean for w in ["straight line", "slope of line", "intercept form", "angle between lines", "pair of straight lines", "distance between parallel"]):
+            return sub_sub, "Coordinate Geometry (Straight Lines and Pairs of Straight Lines)", format_topic("Straight Lines, Slopes, Intercepts & Pair of Lines")
+        if any(w in t_clean for w in ["circle", "radius of circle", "centre of circle", "tangent to circle", "normal to circle", "chord of contact", "family of circles"]):
+            return sub_sub, "Circles and Family of Circles", format_topic("Circles, Tangents, Normals & Family of Circles")
+        if any(w in t_clean for w in ["parabola", "ellipse", "hyperbola", "eccentricity", "latus rectum", "focus of conic", "directrix"]):
+            return sub_sub, "Conic Sections (Parabola, Ellipse, Hyperbola)", format_topic("Conic Sections: Parabola, Ellipse and Hyperbola")
+        if any(w in t_clean for w in ["vector", "dot product", "cross product", "scalar triple product", "box product", "vector triple product", "coplanar vectors", "unit vector"]):
+            return sub_sub, "Vector Algebra", format_topic("Vector Algebra, Dot & Cross Products and Triple Products")
+        if any(w in t_clean for w in ["three dimensional", "3d geometry", "direction cosines", "direction ratios", "equation of plane", "shortest distance between skew", "line and plane"]):
+            return sub_sub, "Three-Dimensional Geometry", format_topic("3D Lines, Planes, Direction Cosines & Skew Lines")
+        if any(w in t_clean for w in ["sin", "cos", "tan", "trigonometric equation", "inverse trigonometric", "heights and distances", "sin^-1", "cos^-1", "properties of triangle"]):
+            return sub_sub, "Trigonometry", format_topic("Trigonometric Functions, Equations & Inverse Trigonometry")
+        if any(w in t_clean for w in ["probability", "conditional probability", "bayes' theorem", "random variable", "binomial distribution", "mean and variance", "standard deviation"]):
+            return sub_sub, "Statistics and Probability", format_topic("Probability Theorems, Bayes' Theorem & Statistics")
+        if any(w in t_clean for w in ["set", "relation", "equivalence relation", "function", "domain and range", "one-one", "onto", "composite function", "inverse of function"]):
+            return sub_sub, "Sets, Relations and Functions", format_topic("Sets, Relations, Function Mapping (Domain & Range)")
 
-    return detected_sub_subject, "Core Chapter", "Standard Coaching Topic"
+        return sub_sub, "Sets, Relations and Functions", format_topic("General Mathematical Principles")
+
+    # ── 5. BIOLOGY / BOTANY / ZOOLOGY ────────────────────────────────
+    elif detected_subject in ["Biology", "Botany", "Zoology"]:
+        if any(w in t_clean for w in ["cell", "mitosis", "meiosis", "plasma membrane", "ribosome", "mitochondria", "chloroplast", "cell cycle", "prophase", "metaphase"]):
+            return "Botany", "Cell Structure and Function", format_topic("Cell Biology, Organelles & Cell Division (Mitosis/Meiosis)")
+        if any(w in t_clean for w in ["photosynthesis", "light reaction", "dark reaction", "calvin cycle", "c3 cycle", "c4 cycle", "respiration in plants", "glycolysis", "krebs cycle", "transpiration", "mineral nutrition", "auxin", "gibberellin", "cytokinin"]):
+            return "Botany", "Plant Physiology", format_topic("Photosynthesis, Plant Respiration & Growth Regulators")
+        if any(w in t_clean for w in ["genetics", "mendel", "law of segregation", "independent assortment", "dna replication", "transcription", "translation", "genetic code", "lac operon", "mutation", "pedigree"]):
+            return "Botany", "Genetics and Evolution", format_topic("Mendelian Genetics, Molecular Basis of Inheritance & Gene Expression")
+        if any(w in t_clean for w in ["ecosystem", "food chain", "food web", "trophic level", "biodiversity", "conservation", "national park", "population ecology", "greenhouse effect", "pollution"]):
+            return "Botany", "Ecology and Environment", format_topic("Ecosystem Dynamics, Biodiversity & Conservation")
+        if any(w in t_clean for w in ["algae", "bryophyte", "pteridophyte", "gymnosperm", "angiosperm", "flower", "inflorescence", "root modification", "stem modification", "leaf anatomy"]):
+            return "Botany", "Diversity in the Living World", format_topic("Plant Kingdom Classification & Morphology/Anatomy of Flowering Plants")
+        if any(w in t_clean for w in ["biotechnology", "recombinant dna", "restriction enzyme", "plasmid", "pcr", "gel electrophoresis", "bt cotton", "gene therapy"]):
+            return "Botany", "Biotechnology and Its Applications", format_topic("Recombinant DNA Technology, PCR & Applications")
+
+        # Zoology
+        if any(w in t_clean for w in ["heart", "cardiac cycle", "ecg", "blood group", "blood pressure", "erythrocyte", "leukocyte", "platelet", "double circulation"]):
+            return "Zoology", "Human Physiology - Body Fluids and Circulation", format_topic("Circulatory System, Cardiac Cycle, ECG & Blood Components")
+        if any(w in t_clean for w in ["kidney", "nephron", "glomerulus", "ultrafiltration", "urine formation", "micturition", "renin", "angiotensin"]):
+            return "Zoology", "Human Physiology - Excretory Products and Their Elimination", format_topic("Excretory System, Nephron Structure & Urine Formation")
+        if any(w in t_clean for w in ["neuron", "synapse", "action potential", "reflex arc", "brain", "central nervous", "eye", "ear", "endocrine", "hormone", "pituitary", "thyroid", "adrenal", "insulin"]):
+            return "Zoology", "Human Physiology - Neural Control and Coordination", format_topic("Neural Transmission, Reflex Actions & Endocrine Hormones")
+        if any(w in t_clean for w in ["digestion", "alimentary canal", "pepsin", "trypsin", "amylase", "bile", "absorption of food", "gastric"]):
+            return "Zoology", "Human Physiology - Digestion and Absorption", format_topic("Digestive System, Digestive Enzymes & Nutrient Absorption")
+        if any(w in t_clean for w in ["respiration", "lungs", "alveoli", "tidal volume", "vital capacity", "exchange of gases", "hemoglobin oxygen"]):
+            return "Zoology", "Human Physiology - Breathing and Exchange of Gases", format_topic("Respiratory Mechanics, Gas Exchange & Lung Volumes")
+        if any(w in t_clean for w in ["bone", "joint", "muscle", "sarcomere", "actin", "myosin", "sliding filament", "locomotion"]):
+            return "Zoology", "Human Physiology - Locomotion and Movement", format_topic("Skeletal System, Joints & Mechanism of Muscle Contraction")
+        if any(w in t_clean for w in ["testis", "ovary", "spermatogenesis", "oogenesis", "menstrual cycle", "fertilization", "blastocyst", "placenta", "contraceptive", "ivf", "art"]):
+            return "Zoology", "Human Reproduction", format_topic("Gametogenesis, Menstrual Cycle, Embryonic Development & Reproductive Health")
+        if any(w in t_clean for w in ["immunity", "antibody", "antigen", "allergy", "aids", "cancer", "pathogen", "plasmodium", "typhoid"]):
+            return "Zoology", "Human Health and Diseases", format_topic("Immunity, Infectious Diseases, AIDS and Cancer")
+        if any(w in t_clean for w in ["darwin", "natural selection", "hardy weinberg", "homologous", "analogous", "fossil", "human evolution"]):
+            return "Zoology", "Evolution (Zoology perspective)", format_topic("Mechanisms of Evolution, Natural Selection & Paleontological Evidence")
+        if any(w in t_clean for w in ["porifera", "coelenterata", "annelida", "arthropoda", "mollusca", "echinodermata", "chordata", "vertebrate", "cockroach"]):
+            return "Zoology", "Animal Kingdom", format_topic("Animal Kingdom Classification & Invertebrate/Vertebrate Characteristics")
+
+        return "Botany", "Diversity in the Living World", format_topic("Biological Principles and Organisms")
+
+    return detected_sub_subject, "Core Chapter", format_topic("Standard Topic")
 def is_instruction_cover_page(page_text: str) -> bool:
     lines = [l.strip() for l in page_text.splitlines() if l.strip()]
     if not lines:
