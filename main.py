@@ -1357,21 +1357,54 @@ async def analyze_pdf_document(pdf_bytes: bytes, filename: str, api_key: Optiona
         if re.search(r'\b(?:GENERAL\s*KNOWLEDGE|GENERAL\s*AWARENESS|CURRENT\s*AFFAIRS)\b', l_upper) or l_upper in ['GK', 'GA', 'GENERAL KNOWLEDGE']:
             return 'General Knowledge', 'General Awareness'
 
-        if len(l_raw) >= 80 or any(k in l_upper for k in ["CONTAIN", "CONSIST", "MARKS", "MINUTE", "HOUR", "TOTAL", "ALLOWED", "INSTRUCTION", "SESSION", "NEGATIVE"]):
+        # Explicit "Subject - ..." or "Subject: ..." or "Sub : ..." pattern matching
+        m_subj = re.search(r'\b(?:SUBJECT|SUB|PAPER|SECTION|PART)\s*[-:\s]+([A-Za-z0-9\s\(\)&–\-,/]+)', l_raw, re.IGNORECASE)
+        if m_subj:
+            val = m_subj.group(1).upper()
+            if 'PHYSICAL CHEMISTRY' in val or 'PC' in val.split():
+                return 'Chemistry', 'Physical Chemistry'
+            if 'ORGANIC CHEMISTRY' in val or 'OC' in val.split():
+                return 'Chemistry', 'Organic Chemistry'
+            if 'INORGANIC CHEMISTRY' in val or 'IOC' in val.split():
+                return 'Chemistry', 'Inorganic Chemistry'
+            if re.search(r'\b(?:CHEMISTRY|CHEM)\b', val):
+                return 'Chemistry', 'Chemistry'
+            if re.search(r'\b(?:PHYSICS|PHYSIC)\b', val):
+                sub_match = re.search(r'\((.*?)\)', m_subj.group(1))
+                sub_name = sub_match.group(1).strip() if sub_match else 'Physics'
+                return 'Physics', sub_name
+            if re.search(r'\b(?:MATHEMATICS|MATHS|MATH)\b', val):
+                return 'Mathematics', 'Mathematics'
+            if re.search(r'\b(?:BOTANY)\b', val):
+                return 'Biology', 'Botany'
+            if re.search(r'\b(?:ZOOLOGY)\b', val):
+                return 'Biology', 'Zoology'
+            if re.search(r'\b(?:BIOLOGY)\b', val):
+                return 'Biology', 'Biology'
+            if re.search(r'\b(?:QUANTITATIVE\s*(?:ABILITY|APTITUDE)|QUANT|QA)\b', val):
+                return 'Quantitative Aptitude', 'Quantitative Aptitude'
+            if re.search(r'\b(?:VERBAL\s*ABILITY|VARC|VA|ENGLISH)\b', val):
+                return 'Verbal Ability', 'Verbal Ability'
+            if re.search(r'\b(?:LOGICAL\s*REASONING|REASONING|LR|DILR)\b', val):
+                return 'Logical Reasoning', 'Logical Reasoning'
+            if re.search(r'\b(?:DATA\s*INTERPRETATION|DI)\b', val):
+                return 'Data Interpretation', 'Data Interpretation'
+
+        if len(l_raw) >= 80:
             return None, None
 
-        if re.search(r'\b(MATHEMATICS|MATHEMATCS|MATHS|MATH)\b', l_upper):
+        if re.search(r'^\s*(?:SECTION|PART)?\s*[-:\s]*\b(MATHEMATICS|MATHEMATCS|MATHS|MATH)\b\s*$', l_upper):
             return 'Mathematics', 'Mathematics'
-        if re.search(r'\bPHYSICS\b', l_upper):
+        if re.search(r'^\s*(?:SECTION|PART)?\s*[-:\s]*\bPHYSICS\b\s*$', l_upper):
             return 'Physics', 'Physics'
-        if re.search(r'\bCHEMISTRY\b', l_upper):
-            return 'Chemistry', 'PC'
-        if re.search(r'\b(BOTANY|PLANT)\b', l_upper):
+        if re.search(r'^\s*(?:SECTION|PART)?\s*[-:\s]*\bCHEMISTRY\b\s*$', l_upper):
+            return 'Chemistry', 'Chemistry'
+        if re.search(r'^\s*(?:SECTION|PART)?\s*[-:\s]*\b(BOTANY|PLANT)\b\s*$', l_upper):
             return 'Biology', 'Botany'
-        if re.search(r'\b(ZOOLOGY|ANIMAL)\b', l_upper):
+        if re.search(r'^\s*(?:SECTION|PART)?\s*[-:\s]*\b(ZOOLOGY|ANIMAL)\b\s*$', l_upper):
             return 'Biology', 'Zoology'
-        if re.search(r'\bBIOLOGY\b', l_upper):
-            return 'Biology', 'Botany'
+        if re.search(r'^\s*(?:SECTION|PART)?\s*[-:\s]*\bBIOLOGY\b\s*$', l_upper):
+            return 'Biology', 'Biology'
 
         return None, None
 
@@ -1384,15 +1417,26 @@ async def analyze_pdf_document(pdf_bytes: bytes, filename: str, api_key: Optiona
         else:
             exam_pages.append(pt)
 
+    # ── FIRST: CHECK DOCUMENT-LEVEL SUBJECT HEADER ON PAGE 1 ───────────
+    doc_header_subj = None
+    doc_header_sub_subj = None
+    if exam_pages:
+        for line in exam_pages[0].splitlines()[:35]:
+            d_s, d_ss = detect_subject_in_line(line.strip())
+            if d_s:
+                doc_header_subj = d_s
+                doc_header_sub_subj = d_ss
+                break
+
     # ── ROBUST LINE-BY-LINE SECTION HEADER & QUESTION PARSER ───────────
     extracted_questions = []
     curr_q_num = None
     curr_q_text = []
-    curr_q_subj = None
-    curr_q_sub_subj = None
-    current_subj = None
-    current_sub_sub = None
-    headers_found = set()
+    curr_q_subj = doc_header_subj
+    curr_q_sub_subj = doc_header_sub_subj
+    current_subj = doc_header_subj
+    current_sub_sub = doc_header_sub_subj
+    headers_found = set([doc_header_subj]) if doc_header_subj else set()
 
     for p_idx, pt in enumerate(exam_pages):
         for line in pt.splitlines():
@@ -1448,8 +1492,9 @@ async def analyze_pdf_document(pdf_bytes: bytes, filename: str, api_key: Optiona
     keys = extract_clean_answer_keys(full_text, total_q_count, doc=doc)
 
     # ── UNIVERSAL DUAL-ENGINE SEQUENTIAL SUBJECT RESOLVER ───────────────
-    # Rule 1: If question paper explicitly mentioned section headers, propagate them monotonically
-    # Rule 2: If headers are absent (or unlabelled), segment into contiguous sequential blocks from question content
+    # Rule 1: If document has explicit section headers for distinct subjects, propagate each
+    # Rule 2: If document has a single explicit subject header (e.g. Subject - Physics), set all to that subject
+    # Rule 3: If no headers at all, segment by question content
     valid_headers = [eq["subject"] for eq in extracted_questions if eq.get("subject")]
     distinct_headers = set(valid_headers)
     
@@ -1464,16 +1509,20 @@ async def analyze_pdf_document(pdf_bytes: bytes, filename: str, api_key: Optiona
             else:
                 eq["subject"] = active_subj
                 eq["sub_subject"] = active_sub_sub
+    elif len(distinct_headers) == 1:
+        # Document header explicitly specified single subject
+        dom_subj = list(distinct_headers)[0]
+        dom_sub_subj = extracted_questions[0].get("sub_subject", dom_subj) if extracted_questions else dom_subj
+        for eq in extracted_questions:
+            eq["subject"] = dom_subj
+            eq["sub_subject"] = dom_sub_subj
     else:
-        # Zero or Single-Header Paper: Determine Subject Content per question
+        # Zero-Heading Paper: Determine Subject Content per question
         raw_subjects = []
         for eq in extracted_questions:
-            s = eq.get("subject")
-            if not s or s == "General":
-                s, _ = detect_subject_from_text(eq["text"])
+            s, sub_s = detect_subject_from_text(eq["text"])
             raw_subjects.append(s if s and s != "General" else "General")
         
-        # Check if content has multiple distinct subjects
         valid_raw = [s for s in raw_subjects if s != "General"]
         distinct_content_subjects = set(valid_raw)
         
@@ -1484,12 +1533,6 @@ async def analyze_pdf_document(pdf_bytes: bytes, filename: str, api_key: Optiona
                     if idx < len(extracted_questions):
                         extracted_questions[idx]["subject"] = s
                         extracted_questions[idx]["sub_subject"] = s
-        elif len(distinct_headers) == 1:
-            # Single-subject specialized paper (e.g. Physics Class Test)
-            dom_subj = list(distinct_headers)[0]
-            for eq in extracted_questions:
-                eq["subject"] = dom_subj
-                eq["sub_subject"] = dom_subj
         elif len(distinct_content_subjects) == 1:
             dom_subj = list(distinct_content_subjects)[0]
             for eq in extracted_questions:
