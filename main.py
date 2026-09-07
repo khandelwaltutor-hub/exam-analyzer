@@ -1920,57 +1920,283 @@ async def analyze_pdf_document(pdf_bytes: bytes, filename: str, api_key: Optiona
         # Execute Independent AI Solver
         questions = await solve_questions_with_gemini(questions, api_key, session_id=session_id)
 
-    # ─── Comprehensive Error Detection ─────────────────────────────
+    # ─── COMPREHENSIVE 6-DIMENSIONAL EXAM QUALITY AUDIT ───────────────
     errors = []
-
-    # 0. Log AI Solution vs Teacher Answer Key Mismatches
-    for q in questions:
-        if q.get("status") == "MISMATCH":
+    
+    # Dimension 1: Question Numbering & Sequence Integrity
+    raw_q_nums = [eq.get("q_no") for eq in extracted_questions if eq.get("q_no") is not None]
+    seen_nums = {}
+    for idx_eq, qn in enumerate(raw_q_nums):
+        if qn in seen_nums:
+            subj_lbl = questions[idx_eq].get("subject", "General") if idx_eq < len(questions) else "General"
             errors.append((
-                f"Q{q['q_no']}",
-                q.get("subject", "General"),
-                "Answer Key Discrepancy (AI Mismatch)",
-                q.get("reason_for_mismatch", "AI derived answer differs from teacher marked option.")
+                f"Q{qn}",
+                subj_lbl,
+                f"Duplicate Question Numbering: Multiple questions detected with number '{qn}'.",
+                f"Question #{seen_nums[qn]+1} and Question #{idx_eq+1} both appear as Q{qn}. Teacher should re-number sequentially."
+            ))
+        else:
+            seen_nums[qn] = idx_eq
+
+    if raw_q_nums:
+        min_q = min(raw_q_nums)
+        max_q = max(raw_q_nums)
+        if min_q > 1 and min_q <= 5:
+            errors.append((
+                f"Q1-Q{min_q-1}",
+                "General",
+                f"Missing Initial Questions: Test starts at Q{min_q} instead of Q1.",
+                f"First detected question is Q{min_q}. Verify if initial questions or cover pages were omitted."
+            ))
+        for expected in range(min_q, max_q + 1):
+            if expected not in seen_nums:
+                subj_lbl = questions[min(expected-1, len(questions)-1)].get("subject", "General") if questions else "General"
+                errors.append((
+                    f"Q{expected}",
+                    subj_lbl,
+                    f"Missing / Skipped Question: Q{expected} is missing from the paper sequence.",
+                    f"Sequence jumps from Q{expected-1} to Q{expected+1}. Possible missing question or typo in question numbering in paper."
+                ))
+
+    # Dimension 2: Option Extraction & Integrity Auditor
+    def parse_mcq_options(text: str):
+        num_matches = list(re.finditer(r'(?:\(([1-4])\)|\[([1-4])\])(?:\s*|(?=[a-zA-Z0-9]))', text))
+        alpha_matches = list(re.finditer(r'(?:\(([A-D])\)|\[([A-D])\])(?:\s*|(?=[a-zA-Z0-9]))', text))
+        lower_alpha = list(re.finditer(r'(?:\(([a-d])\)|\[([a-d])\])(?:\s*|(?=[a-zA-Z0-9]))', text))
+        
+        matches = []
+        if len(num_matches) >= 3:
+            matches = num_matches
+        elif len(alpha_matches) >= 3:
+            matches = alpha_matches
+        elif len(lower_alpha) >= 3 and not ("column" in text.lower() and len(num_matches) >= 2):
+            matches = lower_alpha
+        elif len(num_matches) >= 2:
+            matches = num_matches
+        elif len(alpha_matches) >= 2:
+            matches = alpha_matches
+            
+        options = {}
+        if len(matches) >= 2:
+            for i in range(len(matches)):
+                m = matches[i]
+                lbl = (m.group(1) or m.group(2)).upper()
+                start = m.end()
+                end = matches[i+1].start() if i + 1 < len(matches) else len(text)
+                options[lbl] = text[start:end].strip()
+                
+        return options, (matches[0].start() if matches else len(text))
+
+    for idx_q, q in enumerate(questions):
+        qno = q.get("q_no", idx_q + 1)
+        subj_lbl = q.get("subject", "General")
+        q_txt = q.get("text", "").strip()
+        q_type = q.get("question_type", "Single Choice MCQ")
+        
+        parsed_opts, stem_end_idx = parse_mcq_options(q_txt)
+        stem = q_txt[:stem_end_idx].strip()
+        stem_words = stem.split()
+        
+        is_mcq = "mcq" in q_type.lower() or "single choice" in q_type.lower() or "choice" in q_type.lower() or len(parsed_opts) >= 2
+        is_num = "numerical" in q_type.lower() or "integer" in q_type.lower()
+        
+        if is_mcq and not is_num:
+            found_labels = set(parsed_opts.keys())
+            standard_numeric = {"1", "2", "3", "4"}
+            standard_alpha = {"A", "B", "C", "D"}
+            
+            if found_labels.issubset(standard_numeric) or any(k in standard_numeric for k in found_labels):
+                expected_set = standard_numeric
+            else:
+                expected_set = standard_alpha
+                
+            missing_opts = expected_set - found_labels
+            if 0 < len(missing_opts) <= 2 and len(found_labels) >= 2:
+                missing_str = ", ".join(sorted(missing_opts))
+                errors.append((
+                    f"Q{qno}",
+                    subj_lbl,
+                    f"Missing Option(s): Only {len(found_labels)} options detected ({', '.join(sorted(found_labels))}).",
+                    f"Option(s) [{missing_str}] appear to be missing or unparsed. Teacher must verify option completeness."
+                ))
+            elif len(found_labels) == 0 and not any(k in q_txt.lower() for k in ["integer", "numerical", "value", "matrix match", "column"]):
+                errors.append((
+                    f"Q{qno}",
+                    subj_lbl,
+                    "No MCQ Options Detected: Options (1)-(4) or (A)-(D) not found in text.",
+                    "Question may rely on diagram-embedded options or options were omitted in the PDF."
+                ))
+
+            # Duplicate / Identical Options
+            opt_texts = {}
+            for lbl, o_txt in parsed_opts.items():
+                clean_opt = re.sub(r'[^a-zA-Z0-9]+', ' ', o_txt.lower()).strip()
+                if len(clean_opt) >= 1:
+                    if clean_opt in opt_texts:
+                        errors.append((
+                            f"Q{qno}",
+                            subj_lbl,
+                            f"Duplicate / Identical Options: Option ({opt_texts[clean_opt]}) and Option ({lbl}) have identical text.",
+                            f"Both options contain: '{o_txt[:50]}'. Creates ambiguity / multiple identical options."
+                        ))
+                    else:
+                        opt_texts[clean_opt] = lbl
+
+            # Blank Options
+            for lbl, o_txt in parsed_opts.items():
+                if len(o_txt.strip()) == 0 or o_txt.strip() in [".", "-", "?", "None"]:
+                    errors.append((
+                        f"Q{qno}",
+                        subj_lbl,
+                        f"Blank Option: Option ({lbl}) has empty or missing text content.",
+                        "Option label exists in paper but content is blank or failed to render."
+                    ))
+
+            # Out-of-Range Answer Key
+            t_ans = str(q.get("teacher_answer", "")).strip().upper()
+            if t_ans in ["5", "E", "6", "F"] and len(found_labels) <= 4:
+                errors.append((
+                    f"Q{qno}",
+                    subj_lbl,
+                    f"Out-of-Range Answer Key: Teacher answer is ({t_ans}) but paper only has 4 options.",
+                    f"Marked answer '{t_ans}' is invalid for a 4-option question."
+                ))
+
+        # Dimension 3: Question Language, Stem & Syntax Auditor
+        if len(stem_words) == 0:
+            errors.append((
+                f"Q{qno}",
+                subj_lbl,
+                "Blank Question Stem: No text content found for question.",
+                "Question is completely empty or consists entirely of an unextracted image/diagram."
+            ))
+        elif len(stem_words) < 4 and not any(ch in stem for ch in ["=", "+", "-", "∫", "λ", "θ", "√", "π", ":"]):
+            errors.append((
+                f"Q{qno}",
+                subj_lbl,
+                f"Extremely Short Question Stem ({len(stem_words)} words): '{stem[:40]}...'",
+                "Question stem is incomplete; key problem statement or numerical data may be missing."
             ))
 
-    for eq in extracted_questions:
-        qno = eq.get("q_no", 0)
-        text = eq.get("text", "").strip()
-        word_count = len(text.split())
-        subj_label = questions[qno-1].get("subject", "?") if 0 < qno <= len(questions) else "?"
-        if word_count == 0:
-            errors.append((str(qno), subj_label, "Blank Question Text",
-                "Question text is completely blank — likely diagram/image only. Cannot auto-analyze."))
-        elif word_count < 4:
-            errors.append((str(qno), subj_label, "Very Short Question Text",
-                f"Only {word_count} word(s) extracted: '{text[:60]}' — incomplete due to diagram/image."))
+        hanging_words = ["and", "with", "of", "the", "is", "are", "in", "to", "for", "at", "that", "which", "by", "from", "as", "an", "a"]
+        clean_stem_end = stem.rstrip()
+        if clean_stem_end and not clean_stem_end.endswith((".", "?", ":", ";", "!", "=", "...", "_")):
+            last_word = re.sub(r'[^a-zA-Z]', '', stem_words[-1].lower()) if stem_words else ""
+            if last_word in hanging_words and not any(k in clean_stem_end[-15:].lower() for k in ["is:", "are:", "by:", "to:", "of:", "as:"]):
+                errors.append((
+                    f"Q{qno}",
+                    subj_lbl,
+                    f"Incomplete Question Stem / Abrupt Ending: Line ends abruptly with '{stem_words[-1]}'.",
+                    f"Last line in stem appears truncated without ending punctuation: '... {stem[-40:]}'. Check for cut-off."
+                ))
 
+        open_p = stem.count('(')
+        close_p = stem.count(')')
+        open_b = stem.count('[')
+        close_b = stem.count(']')
+        if abs(open_p - close_p) >= 2 or abs(open_b - close_b) >= 2:
+            errors.append((
+                f"Q{qno}",
+                subj_lbl,
+                "Unbalanced Parentheses / Formula Syntax: Mismatched brackets in question text.",
+                f"Parentheses count: {open_p} '(' vs {close_p} ')'. Check for truncated formulas or missing closing brackets."
+            ))
+
+        if any(g in q_txt for g in ["\ufffd", "???", "\uFFFD"]):
+            errors.append((
+                f"Q{qno}",
+                subj_lbl,
+                "Garbled / Unrendered Characters Detected: Font encoding glitch in text.",
+                "Question text contains unrendered replacement glyphs (e.g. broken mathematical symbols). Teacher should verify formatting."
+            ))
+
+        # Dimension 4: Diagram & Visual Reference Auditor
+        diag_patterns = [
+            r'\b(?:in the given figure|given in the figure|as shown in (?:the )?figure|refer to (?:the )?figure|in the following figure|from the given figure)\b',
+            r'\b(?:as shown in (?:the )?diagram|in the given diagram|refer to (?:the )?diagram|in the adjacent diagram)\b',
+            r'\b(?:in the given circuit|circuit shown in|in the circuit below|circuit diagram)\b',
+            r'\b(?:from the given graph|in the given graph|graph shown below|v-i graph|p-v diagram|indicator diagram)\b',
+            r'\b(?:given curve|in the given structure|represented in the diagram|refer to the given flowchart)\b'
+        ]
+        has_diag = False
+        matched_phrase = ""
+        for dp in diag_patterns:
+            m_dp = re.search(dp, q_txt, re.IGNORECASE)
+            if m_dp:
+                has_diag = True
+                matched_phrase = m_dp.group(0)
+                break
+                
+        if has_diag:
+            errors.append((
+                f"Q{qno}",
+                subj_lbl,
+                f"Diagram / Visual Dependency: Question explicitly references '{matched_phrase}'.",
+                "Question requires visual figure/graph/circuit. Teacher must verify diagram print quality, legibility of labels, and ensure no clipping."
+            ))
+
+        # Dimension 5: Answer Key Discrepancy Auditor
+        status = q.get("status", "MATCH")
+        if status == "MISMATCH":
+            t_ans = q.get("teacher_answer", "N/A")
+            ai_ans = q.get("ai_answer", "N/A")
+            reason = q.get("reason_for_mismatch", "AI derived answer differs from teacher marked option.")
+            errors.append((
+                f"Q{qno}",
+                subj_lbl,
+                f"Answer Key Discrepancy: Teacher marked ({t_ans}) vs AI derived ({ai_ans}).",
+                f"Independent academic derivation proof: {reason}"
+            ))
+
+    # Dimension 6: Global Answer Key Table Completeness
     if len(keys) == 0:
         errors.append((
             "—",
             "General",
-            "Paper Answer Key Omitted",
-            "Exam PDF does not contain an official answer key table. AI independently solved and verified all questions from first principles."
+            "Answer Key Table Omitted: Exam PDF does not contain an official answer key grid.",
+            "AI independently solved and verified all questions from academic first principles."
         ))
     else:
         for qno, ans in keys.items():
             if qno > len(questions):
-                continue
+                errors.append((
+                    f"Q{qno}",
+                    "General",
+                    f"Phantom Answer Key Entry: Key table has answer for Q{qno}, but paper only has {len(questions)} questions.",
+                    f"Extraneous answer key entry '{ans}' found beyond question range."
+                ))
             ans_str = str(ans).strip()
-            subj_label = questions[qno-1].get("subject", "?") if qno <= len(questions) else "?"
-            if ans_str in ("", "-", "?", "N/A"):
-                errors.append((str(qno), subj_label, "Blank Answer Key Entry",
-                    f"Q{qno} answer key entry is blank or invalid in the official table."))
+            if ans_str in ("", "-", "?", "N/A", "NONE"):
+                subj_label = questions[qno-1].get("subject", "General") if qno <= len(questions) else "General"
+                errors.append((
+                    f"Q{qno}",
+                    subj_label,
+                    f"Blank / Incomplete Answer Key Entry in official table.",
+                    f"Official answer key entry for Q{qno} is '{ans_str}'. Teacher must supply correct key."
+                ))
 
-    if not errors:
-        errors.append(("—", "All Subjects", "No Errors Detected",
-            f"All {len(questions)} questions parsed cleanly. Answer key verified without anomalies."))
+    # Deduplicate errors while preserving sequence order
+    unique_errors = []
+    seen_sigs = set()
+    for err in errors:
+        sig = (err[0], err[2])
+        if sig not in seen_sigs:
+            seen_sigs.add(sig)
+            unique_errors.append(err)
+
+    if not unique_errors:
+        unique_errors.append((
+            "—",
+            "All Subjects",
+            "No Errors Detected: Full exam paper passed all 6 dimensions of quality audit.",
+            f"All {len(questions)} questions, options (1)-(4), language syntax, diagram references, and answer keys verified cleanly."
+        ))
 
     return {
         "exam_title": clean_base,
         "total_pages": total_pages,
         "questions": questions,
-        "errors": errors
+        "errors": unique_errors
     }
 
 # =====================================================================
