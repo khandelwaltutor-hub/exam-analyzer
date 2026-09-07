@@ -1960,32 +1960,58 @@ async def analyze_pdf_document(pdf_bytes: bytes, filename: str, api_key: Optiona
 
     # Dimension 2: Option Extraction & Integrity Auditor
     def parse_mcq_options(text: str):
-        num_matches = list(re.finditer(r'(?:\(([1-4])\)|\[([1-4])\])(?:\s*|(?=[a-zA-Z0-9]))', text))
-        alpha_matches = list(re.finditer(r'(?:\(([A-D])\)|\[([A-D])\])(?:\s*|(?=[a-zA-Z0-9]))', text))
+        # 1. First check for standard (1) (2) (3) (4) or [1] [2] [3] [4]
+        bracket_num = list(re.finditer(r'(?:\(([1-4])\)|\[([1-4])\])(?:\s*|(?=[a-zA-Z0-9]))', text))
+        if len(bracket_num) >= 3:
+            options = {}
+            for i in range(len(bracket_num)):
+                m = bracket_num[i]
+                lbl = m.group(1) or m.group(2)
+                start = m.end()
+                end = bracket_num[i+1].start() if i + 1 < len(bracket_num) else len(text)
+                options[lbl] = text[start:end].strip()
+            return options, bracket_num[0].start()
+
+        # 2. Check for numbered lines: 1. ... 2. ... 3. ... 4. (common in Codes- matrix tables like Q15)
+        line_num = list(re.finditer(r'(?:^|\n|\s+)([1-4])\.\s+', text))
+        if len(line_num) == 4:
+            nums = [m.group(1) for m in line_num]
+            if nums == ['1', '2', '3', '4']:
+                options = {}
+                for i in range(len(line_num)):
+                    m = line_num[i]
+                    lbl = m.group(1)
+                    start = m.end()
+                    end = line_num[i+1].start() if i + 1 < len(line_num) else len(text)
+                    options[lbl] = ' '.join(text[start:end].split()).strip()
+                return options, line_num[0].start()
+
+        # 3. Check for (A) (B) (C) (D) or [A] [B] [C] [D]
+        bracket_alpha = list(re.finditer(r'(?:\(([A-D])\)|\[([A-D])\])(?:\s*|(?=[a-zA-Z0-9]))', text))
+        if len(bracket_alpha) >= 3:
+            if not (len(line_num) >= 3 and line_num[0].start() > bracket_alpha[-1].end()):
+                options = {}
+                for i in range(len(bracket_alpha)):
+                    m = bracket_alpha[i]
+                    lbl = (m.group(1) or m.group(2)).upper()
+                    start = m.end()
+                    end = bracket_alpha[i+1].start() if i + 1 < len(bracket_alpha) else len(text)
+                    options[lbl] = text[start:end].strip()
+                return options, bracket_alpha[0].start()
+
+        # 4. Check for (a) (b) (c) (d) if not match-the-column sub-parts
         lower_alpha = list(re.finditer(r'(?:\(([a-d])\)|\[([a-d])\])(?:\s*|(?=[a-zA-Z0-9]))', text))
-        
-        matches = []
-        if len(num_matches) >= 3:
-            matches = num_matches
-        elif len(alpha_matches) >= 3:
-            matches = alpha_matches
-        elif len(lower_alpha) >= 3 and not ("column" in text.lower() and len(num_matches) >= 2):
-            matches = lower_alpha
-        elif len(num_matches) >= 2:
-            matches = num_matches
-        elif len(alpha_matches) >= 2:
-            matches = alpha_matches
-            
-        options = {}
-        if len(matches) >= 2:
-            for i in range(len(matches)):
-                m = matches[i]
+        if len(lower_alpha) >= 3 and not ("column" in text.lower() or "codes" in text.lower()):
+            options = {}
+            for i in range(len(lower_alpha)):
+                m = lower_alpha[i]
                 lbl = (m.group(1) or m.group(2)).upper()
                 start = m.end()
-                end = matches[i+1].start() if i + 1 < len(matches) else len(text)
+                end = lower_alpha[i+1].start() if i + 1 < len(lower_alpha) else len(text)
                 options[lbl] = text[start:end].strip()
-                
-        return options, (matches[0].start() if matches else len(text))
+            return options, lower_alpha[0].start()
+
+        return {}, len(text)
 
     for idx_q, q in enumerate(questions):
         qno = q.get("q_no", idx_q + 1)
