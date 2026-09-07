@@ -140,8 +140,8 @@
         <button onclick="switchTab('tab-dist')" id="btn-tab-dist" class="pb-3 hover:text-slate-200 transition">
           2. Distribution Summary
         </button>
-        <button onclick="switchTab('tab-err')" id="btn-tab-err" class="pb-3 hover:text-slate-200 transition">
-          3. Error Summary
+        <button onclick="switchTab('tab-err')" id="btn-tab-err" class="pb-3 hover:text-slate-200 transition inline-flex items-center gap-1.5">
+          3. Error Summary <span id="err-count-badge" class="px-2 py-0.5 rounded-full text-[10px] font-bold bg-rose-950 text-rose-300 border border-rose-800 hidden">0</span>
         </button>
         <button onclick="switchTab('tab-diff')" id="btn-tab-diff" class="pb-3 hover:text-slate-200 transition">
           4. Overall Difficulty & Ranks
@@ -490,14 +490,45 @@
       // 3. Render Error Summary
       const tbodyErr = document.getElementById("tbody-err");
       tbodyErr.innerHTML = "";
-      (data.errors || []).forEach(err => {
+      const errorList = data.errors || [];
+      const realIssues = errorList.filter(e => e[2] && !e[2].startsWith("No Errors"));
+      
+      const badge = document.getElementById("err-count-badge");
+      if (badge) {
+        if (realIssues.length > 0) {
+          badge.textContent = `${realIssues.length} Flags`;
+          badge.classList.remove("hidden");
+        } else {
+          badge.textContent = "0 Flags";
+          badge.classList.add("hidden");
+        }
+      }
+
+      errorList.forEach(err => {
         const tr = document.createElement("tr");
-        tr.className = "hover:bg-slate-800/40 transition";
+        tr.className = "hover:bg-slate-800/40 transition border-b border-slate-800/60";
+        
+        let issueBadgeColor = "text-sky-400 bg-sky-950/40 border-sky-800";
+        const issueText = err[2] || "";
+        if (issueText.includes("Answer Key") || issueText.includes("Mismatch") || issueText.includes("Missing Option") || issueText.includes("Duplicate / Identical")) {
+          issueBadgeColor = "text-rose-400 bg-rose-950/40 border-rose-800";
+        } else if (issueText.includes("Diagram") || issueText.includes("Visual")) {
+          issueBadgeColor = "text-amber-400 bg-amber-950/40 border-amber-800";
+        } else if (issueText.includes("Numbering") || issueText.includes("Skipped")) {
+          issueBadgeColor = "text-orange-400 bg-orange-950/40 border-orange-800";
+        } else if (issueText.includes("Stem") || issueText.includes("Syntax") || issueText.includes("Garbled")) {
+          issueBadgeColor = "text-indigo-400 bg-indigo-950/40 border-indigo-800";
+        } else if (issueText.includes("No Errors")) {
+          issueBadgeColor = "text-emerald-400 bg-emerald-950/40 border-emerald-800";
+        }
+
         tr.innerHTML = `
           <td class="p-3 text-center font-bold text-slate-200">${err[0]}</td>
           <td class="p-3 text-center text-amber-400 font-medium">${err[1]}</td>
-          <td class="p-3 text-slate-300">${err[2]}</td>
-          <td class="p-3 text-slate-400">${err[3] || 'None'}</td>
+          <td class="p-3 text-slate-200">
+            <div class="inline-block px-2 py-0.5 rounded text-[11px] font-semibold border ${issueBadgeColor} mb-1">${err[2]}</div>
+          </td>
+          <td class="p-3 text-slate-300 font-normal leading-relaxed">${err[3] || 'None'}</td>
         `;
         tbodyErr.appendChild(tr);
       });
