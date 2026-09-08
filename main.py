@@ -651,18 +651,68 @@ def classify_question_taxonomy(q_text: str, detected_subject: str, detected_sub_
 
     # ── 5. BIOLOGY / BOTANY / ZOOLOGY ────────────────────────────────
     elif detected_subject in ["Biology", "Botany", "Zoology"]:
-        if any(w in t_clean for w in ["cell", "mitosis", "meiosis", "plasma membrane", "ribosome", "mitochondria", "chloroplast", "cell cycle", "prophase", "metaphase"]):
-            return "Botany", "Cell Structure and Function", format_topic("Cell Biology, Organelles & Cell Division (Mitosis/Meiosis)")
-        if any(w in t_clean for w in ["photosynthesis", "light reaction", "dark reaction", "calvin cycle", "c3 cycle", "c4 cycle", "respiration in plants", "glycolysis", "krebs cycle", "transpiration", "mineral nutrition", "auxin", "gibberellin", "cytokinin"]):
-            return "Botany", "Plant Physiology", format_topic("Photosynthesis, Plant Respiration & Growth Regulators")
-        if any(w in t_clean for w in ["genetics", "mendel", "law of segregation", "independent assortment", "dna replication", "transcription", "translation", "genetic code", "lac operon", "mutation", "pedigree"]):
-            return "Botany", "Genetics and Evolution", format_topic("Mendelian Genetics, Molecular Basis of Inheritance & Gene Expression")
-        if any(w in t_clean for w in ["ecosystem", "food chain", "food web", "trophic level", "biodiversity", "conservation", "national park", "population ecology", "greenhouse effect", "pollution"]):
-            return "Botany", "Ecology and Environment", format_topic("Ecosystem Dynamics, Biodiversity & Conservation")
+        # Botany - Sexual Reproduction in Flowering Plants
+        if any(w in t_clean for w in [
+            "microspore", "microsporogenesis", "megaspore", "megasporogenesis", "pollen", "pollination", "anemophily", "hydrophily", "entomophily",
+            "embryo sac", "ovule", "nucellus", "anatropous", "sporopollenin", "tapetum", "endothecium", "synergid", "filiform", "antipodal",
+            "central cell", "polar nuclei", "triple fusion", "double fertilization", "endosperm", "apomixis", "polyembryony", "scutellum",
+            "coleoptile", "coleorhiza", "epiblast", "perisperm", "cleistogamous", "chasmogamous", "geitonogamy", "xenogamy", "autogamy", "generative cell",
+            "seed", "seeds", "dormancy", "viability", "embryo", "embroyo", "embryogenesis", "hybrid seed", "hybrid varities", "lupinus", "phoenix dactylifera",
+            "parthenocarpy", "apomictic", "dicot", "monocot", "pistil", "carpel", "gynoecium", "androecium", "stigma", "style", "anther", "filament", "angiosperm",
+            "floral primordium", "primordium", "primordia", "ornithophily", "chiropterophily", "malacophily", "emasculation", "bagging", "artificial hybridisation", "artificial hybridization",
+            "bryophytes and pteridophytes", "distribution on land is limited"
+        ]):
+            if any(w in t_clean for w in ["sporopollenin", "exine", "germ pore", "intine", "pollen wall", "tapetum", "endothecium", "microsporangium", "microsporogenesis", "pollen tetrad"]):
+                return "Botany", "Sexual Reproduction in Flowering Plants", format_topic("Microsporogenesis, Pollen Wall (Sporopollenin) & Anther Structure")
+            if any(w in t_clean for w in ["anatropous", "ovule", "megasporogenesis", "nucellus", "integuments", "micropyle", "chalaza"]):
+                return "Botany", "Sexual Reproduction in Flowering Plants", format_topic("Structure of Ovule (Anatropous Ovule) & Megasporogenesis")
+            if any(w in t_clean for w in ["synergid", "filiform", "antipodal", "embryo sac", "7-celled", "8-nucleate", "female gametophyte"]):
+                return "Botany", "Sexual Reproduction in Flowering Plants", format_topic("Organization of Female Gametophyte (7-Celled, 8-Nucleate Embryo Sac)")
+            if any(w in t_clean for w in ["pollination", "anemophily", "hydrophily", "entomophily", "ornithophily", "cleistogamous", "chasmogamous", "geitonogamy", "xenogamy", "autogamy", "outbreeding", "salvia", "yucca", "dichogamy", "dicliny", "homogamy", "emasculation", "bagging", "artificial hybridisation", "artificial hybridization"]):
+                return "Botany", "Sexual Reproduction in Flowering Plants", format_topic("Pollination Mechanisms & Outbreeding Devices (Emasculation, Bagging & Biotic/Abiotic Vectors)")
+            if any(w in t_clean for w in ["double fertilization", "triple fusion", "pen", "ploidy of endosperm"]):
+                return "Botany", "Sexual Reproduction in Flowering Plants", format_topic("Double Fertilization, Triple Fusion (PEN) & Ploidy Level Calculations")
+            if any(w in t_clean for w in ["endosperm", "free nuclear", "scutellum", "coleoptile", "coleorhiza", "dicot embryo", "monocot embryo", "globular", "heart-shaped", "embroyo", "embryogenesis"]):
+                return "Botany", "Sexual Reproduction in Flowering Plants", format_topic("Post-Fertilization Development: Endosperm & Embryogenesis (Monocot vs Dicot)")
+            if any(w in t_clean for w in ["apomixis", "polyembryony", "perisperm", "false fruit", "parthenocarpy", "adventive", "seed", "dormancy", "viability", "lupinus", "hybrid"]):
+                return "Botany", "Sexual Reproduction in Flowering Plants", format_topic("Apomixis, Polyembryony, Perisperm & Fruit/Seed Development (True/False/Parthenocarpic)")
+            return "Botany", "Sexual Reproduction in Flowering Plants", format_topic("Flower Structure, Floral Primordium & Pre-Fertilisation Events")
+
+        # Botany - Cell Biology
+        if any(w in t_clean for w in ["cell", "mitosis", "meiosis", "plasma membrane", "ribosome", "mitochondria", "chloroplast", "cell cycle", "prophase", "metaphase", "anaphase", "telophase", "cytokinesis", "centromere", "chromatid"]):
+            if any(w in t_clean for w in ["mitosis", "meiosis", "prophase", "metaphase", "anaphase", "telophase", "cell cycle", "g1 phase", "s phase", "g2 phase", "m phase", "synapsis", "crossing over", "chiasmata"]):
+                return "Botany", "Cell Cycle and Cell Division", format_topic("Stages of Mitosis, Meiosis (Crossing Over, Synapsis) & Cell Cycle Phases")
+            return "Botany", "Cell: The Unit of Life", format_topic("Cell Structure, Organelles (Mitochondria, Chloroplasts, Ribosomes) & Membrane Transport")
+
+        # Botany - Plant Physiology
+        if any(w in t_clean for w in ["photosynthesis", "light reaction", "dark reaction", "calvin cycle", "c3 cycle", "c4 cycle", "respiration in plants", "glycolysis", "krebs cycle", "transpiration", "mineral nutrition", "auxin", "gibberellin", "cytokinin", "abscisic acid", "ethylene", "photoperiodism", "vernalization"]):
+            if any(w in t_clean for w in ["photosynthesis", "calvin", "c3", "c4", "krantz", "rubisco", "ps i", "ps ii", "photophosphorylation"]):
+                return "Botany", "Photosynthesis in Higher Plants", format_topic("Light Reactions, Photophosphorylation, Calvin C3 & Hatch-Slack C4 Pathways")
+            if any(w in t_clean for w in ["respiration", "glycolysis", "krebs", "tca cycle", "ets", "oxidative phosphorylation", "rq"]):
+                return "Botany", "Respiration in Plants", format_topic("Cellular Respiration: Glycolysis, Krebs Cycle & Electron Transport Chain (ETS)")
+            return "Botany", "Plant Growth and Development", format_topic("Plant Hormones (Auxin, Gibberellin, Cytokinin, ABA, Ethylene) & Photoperiodism")
+
+        # Botany - Genetics and Evolution
+        if any(w in t_clean for w in ["genetics", "mendel", "law of segregation", "independent assortment", "dna replication", "transcription", "translation", "genetic code", "lac operon", "mutation", "pedigree", "linkage", "recombination", "dihybrid", "monohybrid"]):
+            if any(w in t_clean for w in ["dna replication", "transcription", "translation", "genetic code", "lac operon", "rna polymerase", "t-rna", "m-rna", "operon"]):
+                return "Botany", "Molecular Basis of Inheritance", format_topic("Molecular Genetics: DNA Replication, Transcription, Translation & Lac Operon")
+            return "Botany", "Principles of Inheritance and Variation", format_topic("Mendelian Laws of Inheritance, Incomplete Dominance, Linkage & Pedigree Analysis")
+
+        # Botany - Ecology and Environment
+        if any(w in t_clean for w in ["ecosystem", "food chain", "food web", "trophic level", "biodiversity", "conservation", "national park", "population ecology", "greenhouse effect", "pollution", "biomass", "pyramid"]):
+            if any(w in t_clean for w in ["ecosystem", "trophic", "food chain", "pyramid of biomass", "pyramid of energy", "nutrient cycling"]):
+                return "Botany", "Ecosystem", format_topic("Ecosystem Structure, Energy Flow, Trophic Levels & Ecological Pyramids")
+            if any(w in t_clean for w in ["biodiversity", "species richness", "conservation", "in-situ", "ex-situ", "endangered", "sanctuary"]):
+                return "Botany", "Biodiversity and Conservation", format_topic("Biodiversity Patterns, Loss of Biodiversity & Conservation Strategies (In-situ/Ex-situ)")
+            return "Botany", "Organisms and Populations", format_topic("Population Ecology, Adaptations, Population Attributes & Growth Curves")
+
+        # Botany - Diversity in the Living World
         if any(w in t_clean for w in ["algae", "bryophyte", "pteridophyte", "gymnosperm", "angiosperm", "flower", "inflorescence", "root modification", "stem modification", "leaf anatomy"]):
-            return "Botany", "Diversity in the Living World", format_topic("Plant Kingdom Classification & Morphology/Anatomy of Flowering Plants")
+            return "Botany", "Plant Kingdom", format_topic("Classification & Alternation of Generations (Algae, Bryophytes, Pteridophytes, Gymnosperms)")
+
+        # Botany - Biotechnology
         if any(w in t_clean for w in ["biotechnology", "recombinant dna", "restriction enzyme", "plasmid", "pcr", "gel electrophoresis", "bt cotton", "gene therapy"]):
-            return "Botany", "Biotechnology and Its Applications", format_topic("Recombinant DNA Technology, PCR & Applications")
+            return "Botany", "Biotechnology: Principles and Processes", format_topic("Recombinant DNA Technology, Restriction Enzymes, Plasmids & PCR")
 
         # Zoology
         if any(w in t_clean for w in ["heart", "cardiac cycle", "ecg", "blood group", "blood pressure", "erythrocyte", "leukocyte", "platelet", "double circulation"]):
@@ -677,16 +727,18 @@ def classify_question_taxonomy(q_text: str, detected_subject: str, detected_sub_
             return "Zoology", "Human Physiology - Breathing and Exchange of Gases", format_topic("Respiratory Mechanics, Gas Exchange & Lung Volumes")
         if any(w in t_clean for w in ["bone", "joint", "muscle", "sarcomere", "actin", "myosin", "sliding filament", "locomotion"]):
             return "Zoology", "Human Physiology - Locomotion and Movement", format_topic("Skeletal System, Joints & Mechanism of Muscle Contraction")
-        if any(w in t_clean for w in ["testis", "ovary", "spermatogenesis", "oogenesis", "menstrual cycle", "fertilization", "blastocyst", "placenta", "contraceptive", "ivf", "art"]):
-            return "Zoology", "Human Reproduction", format_topic("Gametogenesis, Menstrual Cycle, Embryonic Development & Reproductive Health")
+        if any(w in t_clean for w in ["testis", "ovary", "spermatogenesis", "oogenesis", "menstrual cycle", "fertilization", "blastocyst", "placenta", "contraceptive", "ivf", "art", "uterus", "vasectomy", "tubectomy"]):
+            if any(w in t_clean for w in ["contraceptive", "ivf", "art", "stis", "aids", "vasectomy", "tubectomy", "mtp", "amniocentesis", "iud"]):
+                return "Zoology", "Reproductive Health", format_topic("Contraceptive Methods, ART (IVF/ZIFT/GIFT), MTP & STIs Prevention")
+            return "Zoology", "Human Reproduction", format_topic("Male/Female Reproductive Anatomy, Gametogenesis, Menstrual Cycle & Embryonic Development")
         if any(w in t_clean for w in ["immunity", "antibody", "antigen", "allergy", "aids", "cancer", "pathogen", "plasmodium", "typhoid"]):
             return "Zoology", "Human Health and Diseases", format_topic("Immunity, Infectious Diseases, AIDS and Cancer")
         if any(w in t_clean for w in ["darwin", "natural selection", "hardy weinberg", "homologous", "analogous", "fossil", "human evolution"]):
-            return "Zoology", "Evolution (Zoology perspective)", format_topic("Mechanisms of Evolution, Natural Selection & Paleontological Evidence")
+            return "Zoology", "Evolution", format_topic("Mechanisms of Evolution, Natural Selection & Paleontological Evidence")
         if any(w in t_clean for w in ["porifera", "coelenterata", "annelida", "arthropoda", "mollusca", "echinodermata", "chordata", "vertebrate", "cockroach"]):
             return "Zoology", "Animal Kingdom", format_topic("Animal Kingdom Classification & Invertebrate/Vertebrate Characteristics")
 
-        return "Botany", "Diversity in the Living World", format_topic("Biological Principles and Organisms")
+        return "Botany", "Sexual Reproduction in Flowering Plants", format_topic("Plant Reproductive Biology & Embryology")
 
     return detected_sub_subject, "Core Chapter", format_topic("Standard Topic")
 def is_instruction_cover_page(page_text: str) -> bool:
@@ -1356,7 +1408,7 @@ def solve_question_dynamically(q_text: str, q_no: int, subject: str) -> tuple:
         return "1", "Passage contrasts instinctual reacting with conscious, reflective responding (Option 1)."
     if "angle bisector" in q_low:
         return "1", "By Angle Bisector Theorem, ratio of segments equals adjacent sides ratio (Option 1)."
-    if "logarithm" in q_low or "log" in q_low:
+    if ("logarithm" in q_low or re.search(r'\blog\b', q_low)) and subject in ["Mathematics", "Quantitative Aptitude", "Physics", "Chemistry"]:
         return "2", "Solving logarithmic equation yields x = 2 (Option 2)."
     if "cone recast" in q_low or ("cone" in q_low and "cylinder" in q_low):
         return "2", "Equating volumes (1/3)*pi*r1^2*h1 = pi*r2^2*h2 gives new cylinder dimensions (Option 2)."
@@ -1972,8 +2024,8 @@ async def analyze_pdf_document(pdf_bytes: bytes, filename: str, api_key: Optiona
                 options[lbl] = text[start:end].strip()
             return options, bracket_num[0].start()
 
-        # 2. Check for numbered lines: 1. ... 2. ... 3. ... 4. (common in Codes- matrix tables like Q15)
-        line_num = list(re.finditer(r'(?:^|\n|\s+)([1-4])\.\s+', text))
+        # 2. Check for numbered lines: 1. ... 2. ... 3. ... 4. (common in Codes- matrix tables like Q15, Q60, Q78, Q80)
+        line_num = list(re.finditer(r'(?:^|\n)\s*([1-4])(?:\.|\s+)\s*', text))
         if len(line_num) == 4:
             nums = [m.group(1) for m in line_num]
             if nums == ['1', '2', '3', '4']:
